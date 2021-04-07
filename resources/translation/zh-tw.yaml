@@ -1,0 +1,6 @@
+version: 0.0.2
+lang: "zh-tw"
+name: "繁體中文"
+dict:
+  # common
+  home: 首頁

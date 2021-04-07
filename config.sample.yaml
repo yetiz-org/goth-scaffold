@@ -1,0 +1,31 @@
+datastore:
+  kksecret_path: /secret/
+  geoip_path: /usr/share/GeoIP/
+  database_name: goth-scaffold
+  redis_name: goth-scaffold
+app:
+  domain_name: goth-scaffold.kklab.com
+  port: 8080
+  environment: staging
+credentials:
+http:
+  scheme: https
+  session_type: memory
+  session_key: GO_SCAFFOLD
+  session_domain: go-scaffold.kklab.com
+  session_expire_time: 3600
+websocket:
+  scheme: ws
+  check_origin: false
+lang:
+  default: zh-TW
+logger:
+  logger_path: alloc/logs/
+  log_level: info
+profiler:
+  enable: false
+  project_id:
+  mutex_profiling: true
+  no_alloc_profiling: false
+  no_heap_profiling: false
+  no_goroutine_profiling: false

@@ -1,0 +1,18 @@
+{{define "main"}}
+<!DOCTYPE html>
+<html>
+<head>
+    {{template "_header_claim" .}}
+</head>
+<body id="page-{{ .PageID}}">
+<div id="wrapper">
+    {{template "_header_content" .}}
+    <div class="container">
+        {{template "content" .}}
+    </div>
+    {{template "_footer_content" .}}
+</div>
+{{template "_footer_claim" .}}
+</body>
+</html>
+{{end}}
