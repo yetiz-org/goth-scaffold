@@ -15,6 +15,7 @@ import (
 	"github.com/kklab-com/goth-kklogger"
 	"github.com/kklab-com/goth-kksecret"
 	"github.com/kklab-com/goth-kkstdcatcher"
+	"github.com/kklab-com/goth-scaffold/app/build_info"
 	"github.com/kklab-com/goth-scaffold/app/conf"
 )
 
@@ -47,10 +48,10 @@ func FlagParse() {
 	flag.Parse()
 
 	if help {
-		fmt.Println(fmt.Sprintf("BuildGitBranch: %s", BuildGitBranch))
-		fmt.Println(fmt.Sprintf("BuildGitVersion: %s", BuildGitVersion))
-		fmt.Println(fmt.Sprintf("BuildGoVersion: %s", BuildGoVersion))
-		fmt.Println(fmt.Sprintf("BuildTimestamp: %s", BuildTimestamp))
+		fmt.Println(fmt.Sprintf("BuildGitBranch: %s", build_info.BuildGitBranch))
+		fmt.Println(fmt.Sprintf("BuildGitVersion: %s", build_info.BuildGitVersion))
+		fmt.Println(fmt.Sprintf("BuildGoVersion: %s", build_info.BuildGoVersion))
+		fmt.Println(fmt.Sprintf("BuildTimestamp: %s", build_info.BuildTimestamp))
 		flag.Usage()
 		os.Exit(0)
 	}
@@ -133,7 +134,7 @@ func ProfilerInit() {
 		timer := time.NewTimer(time.Second)
 		config := profiler.Config{
 			Service:              "go-scaffold",
-			ServiceVersion:       fmt.Sprintf("%s(%s-%s)", conf.Config().App.Environment, BuildGitVersion[:8], BuildTimestamp),
+			ServiceVersion:       fmt.Sprintf("%s(%s-%s)", conf.Config().App.Environment, build_info.BuildGitVersion[:8], build_info.BuildTimestamp),
 			MutexProfiling:       conf.Config().Profiler.MutexProfiling,
 			NoAllocProfiling:     conf.Config().Profiler.NoAllocProfiling,
 			NoHeapProfiling:      conf.Config().Profiler.NoHeapProfiling,
