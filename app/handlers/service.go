@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net"
-	"reflect"
 
 	"github.com/kklab-com/gone/channel"
 	"github.com/kklab-com/gone/http"
@@ -17,7 +16,7 @@ func (k *Service) Start(port int) {
 	}
 
 	bootstrap := channel.NewServerBootstrap()
-	bootstrap.ChannelType(reflect.TypeOf(http.DefaultServerChannel{}))
+	bootstrap.ChannelType(&http.ServerChannel{})
 	bootstrap.ChildHandler(channel.NewInitializer(new(Initializer).Init))
 	channel := bootstrap.Bind(&net.TCPAddr{IP: nil, Port: port}).Sync().Channel()
 	channel.CloseFuture().Sync()

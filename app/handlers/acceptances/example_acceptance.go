@@ -9,7 +9,7 @@ import (
 type ExampleAcceptance struct{}
 
 func (ExampleAcceptance) Do(req *http.Request, resp *http.Response, params map[string]interface{}) error {
-	if req.RequestURI == "/" {
+	if req.RequestURI() == "/" {
 		return nil
 	}
 

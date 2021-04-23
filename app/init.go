@@ -30,8 +30,8 @@ func Init() {
 	EnvironmentInit()
 	DatabaseInit()
 	RedisInit()
-	StdRedirectInit()
 	LoggerInit()
+	StdRedirectInit()
 	HttpSessionInit()
 	ProfilerInit()
 }

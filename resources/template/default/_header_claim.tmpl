@@ -1,10 +1,15 @@
 {{define "_header_claim"}}
 <meta charset="utf-8">
-<title>{{.PageTitle}}</title>
+<title>{{ .Page_Title }}</title>
 <meta content="noindex" name="robots">
 <meta content="width=device-width, initial-scale=1.0, user-scalable=no" name="viewport">
 <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
 <link crossorigin="anonymous" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
       integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" rel="stylesheet">
 <link href="https://unpkg.com/98.css" rel="stylesheet"/>
+{{if .Javascript_Header }}
+<script>
+    {{ .Javascript_Header }}
+</script>
+{{end}}
 {{end}}

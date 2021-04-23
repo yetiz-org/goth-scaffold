@@ -23,7 +23,7 @@ func (i *Initializer) Init(ch channel.Channel) {
 		gzipHandler = new(http.GZipHandler)
 		dispatchHandler = http.NewDispatchHandler(NewRoute())
 		logHandler.FilterFunc = func(req *http.Request, resp *http.Response, params map[string]interface{}) bool {
-			return req.RequestURI != "/health"
+			return req.RequestURI() != "/health"
 		}
 	})
 

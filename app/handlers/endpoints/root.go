@@ -1,16 +1,21 @@
 package endpoints
 
 import (
+	"github.com/kklab-com/gone/channel"
 	"github.com/kklab-com/gone/http"
 )
 
 type Root struct {
-	KKHandlerTask
+	HandlerTask
 }
 
 var HandlerRoot = &Root{}
 
-func (l *Root) Get(req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
-	l.RenderHtml("home", nil, resp)
+func (l *Root) Get(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+	l.SessionRenderData(resp, "SSS", "S1")
+	l.RenderHtml("home", &RenderConfig{
+		PageTitle:      "the root title",
+		PageRenderData: map[string]interface{}{"SHOW": "SHOW~~"},
+	}, resp)
 	return nil
 }
