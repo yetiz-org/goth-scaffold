@@ -69,8 +69,8 @@ github.com/jinzhu/now v1.0.1/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/kklab-com/gone v0.0.0-20210426035518-92f7ceb5fd07 h1:4Ii2cUOtzqXwzQJ0sKPo0Luj6lHktwQBUzulhpgXZzU=
-github.com/kklab-com/gone v0.0.0-20210426035518-92f7ceb5fd07/go.mod h1:SC0ZnXo/unTgeKWLgnwU39JxQnuH8MLoYQHfQzvQWXU=
+github.com/kklab-com/gone v0.0.0-20210426072025-159c0b76e331 h1:+eNpmtyLxZHkVRErSmoImYqrltmZ9c6K+JWx3f1t0cE=
+github.com/kklab-com/gone v0.0.0-20210426072025-159c0b76e331/go.mod h1:SC0ZnXo/unTgeKWLgnwU39JxQnuH8MLoYQHfQzvQWXU=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f h1:DfrrAE0rQZ7vj1YgkEStSwja0DKI0RfqK7U2plt6Xvc=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329103101-07f17310ce7c h1:1iwTLqskAiPhDbMnyHzhDJl5FfRnMcsQoKn6MwLmGCk=
