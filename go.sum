@@ -69,8 +69,8 @@ github.com/jinzhu/now v1.0.1/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/kklab-com/gone v0.0.0-20210423103615-eabd85fbbcbd h1:Ma9ucZ0DH3ncrO3lZrrQ2La/5BQZOnwsDLQnDeVwoks=
-github.com/kklab-com/gone v0.0.0-20210423103615-eabd85fbbcbd/go.mod h1:2F8ePKrZjij/6XrK9driIaQCnKqm1gAsAWwtzhxZoC4=
+github.com/kklab-com/gone v0.0.0-20210426035518-92f7ceb5fd07 h1:4Ii2cUOtzqXwzQJ0sKPo0Luj6lHktwQBUzulhpgXZzU=
+github.com/kklab-com/gone v0.0.0-20210426035518-92f7ceb5fd07/go.mod h1:SC0ZnXo/unTgeKWLgnwU39JxQnuH8MLoYQHfQzvQWXU=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f h1:DfrrAE0rQZ7vj1YgkEStSwja0DKI0RfqK7U2plt6Xvc=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329103101-07f17310ce7c h1:1iwTLqskAiPhDbMnyHzhDJl5FfRnMcsQoKn6MwLmGCk=
@@ -102,8 +102,8 @@ github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a h1:tM
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
 github.com/kklab-com/goth-kkutil v0.0.0-20210423074232-90cce814d0cb h1:fukMcC8H/rJ6Mifqre1IGaNe9qUv08nD9k0n7a6bg90=
 github.com/kklab-com/goth-kkutil v0.0.0-20210423074232-90cce814d0cb/go.mod h1:OoZAKtG3nKDGJhOuqFRwn5g8v9+D/JuehBRQpT0Bt2M=
-github.com/kklab-com/goth-panic v0.0.0-20210415075005-d0c9fd7f436f h1:wi3maADuvLCz7Hgl4VHDNRpfhiAk6F4BeAHIyiO8Gmo=
-github.com/kklab-com/goth-panic v0.0.0-20210415075005-d0c9fd7f436f/go.mod h1:jykIHjr28eVm11uRewgPBQ8JzEnxJLQeVWbxPHoWSig=
+github.com/kklab-com/goth-panic v0.0.0-20210425141103-59b9723aecd8 h1:IQWQf5mxC2ZRvoZvbNsxa9PjCH5koriEmdd1ptv2uhs=
+github.com/kklab-com/goth-panic v0.0.0-20210425141103-59b9723aecd8/go.mod h1:LAzKUp0CnY+66MG8lldBXKumPLAEu0tOVNPMCtumx7A=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2 h1:DB17ag19krx9CFsz4o3enTrPXyIXCl+2iCXH/aMAp9s=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=

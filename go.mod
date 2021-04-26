@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.38.0
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/jinzhu/gorm v1.9.11
-	github.com/kklab-com/gone v0.0.0-20210423103615-eabd85fbbcbd
+	github.com/kklab-com/gone v0.0.0-20210426035518-92f7ceb5fd07
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329103101-07f17310ce7c
 	github.com/kklab-com/goth-erresponse v0.0.0-20210329135427-02810fea0ae7
