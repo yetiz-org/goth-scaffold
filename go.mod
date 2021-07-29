@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.38.0
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/jinzhu/gorm v1.9.11
-	github.com/kklab-com/gone v0.0.0-20210527151233-7abf4f4e50f6
+	github.com/kklab-com/gone v0.0.0-20210729111612-afd95a8fc649
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca
 	github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242
@@ -18,6 +18,6 @@ require (
 	github.com/kklab-com/goth-kkstdcatcher v0.0.0-20210423101509-380564d2e888
 	github.com/kklab-com/goth-kktemplate v0.0.0-20210423091942-a7a4fbc478cb
 	github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a
-	github.com/kklab-com/goth-kkutil v0.0.0-20210521132440-b92ce9a69c08
+	github.com/kklab-com/goth-kkutil v0.0.0-20210729111232-a496f826e45b
 	gopkg.in/yaml.v2 v2.2.7
 )
