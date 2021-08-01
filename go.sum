@@ -64,7 +64,6 @@ github.com/googleapis/gax-go/v2 v2.0.4 h1:hU4mGcQI4DaAYW+IbTun+2qEZVFxK0ySjQLTbS
 github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+vpHVxEJEs9eg=
 github.com/gorilla/context v1.1.1/go.mod h1:kBGZzfjB9CEq2AlWe17Uuf7NDRt0dE0s8S51q0aT7Yg=
 github.com/gorilla/mux v1.6.2/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
-github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed h1:5upAirOpQc1Q53c0bnx2ufif5kANL7bfZWcc6VJWJd8=
 github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed/go.mod h1:tMWxXQ9wFIaZeTI9F+hmhFiGpFmhOHzyShyFUhRm0H4=
 github.com/hashicorp/golang-lru v0.5.0 h1:CL2msUPvZTLb5O648aiLNJw3hnBxN2+1Jq8rCOH9wdo=
@@ -79,8 +78,8 @@ github.com/jinzhu/now v1.0.1/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/kklab-com/gone v0.0.0-20210729111612-afd95a8fc649 h1:2Ikk9DMQZdP/qPuBW4Jam+WdCPD+mJB61MvsbNBC8h4=
-github.com/kklab-com/gone v0.0.0-20210729111612-afd95a8fc649/go.mod h1:vztiKdQVNf3Ke1h59+EXFy8BnnLt5VOjZoY455dieVQ=
+github.com/kklab-com/gone v0.0.0-20210801055607-4ffce328058d h1:gZTkdskq5Nnw+VpXrI9GoKflNLvFQx7wm3LSkxd5Grg=
+github.com/kklab-com/gone v0.0.0-20210801055607-4ffce328058d/go.mod h1:J7rlMb0N4nRS7Rr83BX9MkOK5Dp+UgX/yMNU2Rlwbh4=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117 h1:kZ4oeh1Rtavfk56c8khjv6EAb+ZG675dEJzUtMa/ZtU=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
@@ -113,8 +112,8 @@ github.com/kklab-com/goth-kktemplate v0.0.0-20210423091942-a7a4fbc478cb/go.mod h
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329104645-f7e9ba6a91de/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a h1:tMXs0MKQWprdhMBkgAyJ3Wab0gH58qEAEx/aWyz7PEs=
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
-github.com/kklab-com/goth-kkutil v0.0.0-20210729111232-a496f826e45b h1:yv7TBhf089L6aafgKP0pMBWlnINHX4x8v7cIHZE4ch8=
-github.com/kklab-com/goth-kkutil v0.0.0-20210729111232-a496f826e45b/go.mod h1:OoZAKtG3nKDGJhOuqFRwn5g8v9+D/JuehBRQpT0Bt2M=
+github.com/kklab-com/goth-kkutil v0.0.0-20210801054302-fd26a30f89bb h1:KJ2QWsTg25CwN1my2Jl7osv5LAnsWvCgE8CPRfmWEIg=
+github.com/kklab-com/goth-kkutil v0.0.0-20210801054302-fd26a30f89bb/go.mod h1:OoZAKtG3nKDGJhOuqFRwn5g8v9+D/JuehBRQpT0Bt2M=
 github.com/kklab-com/goth-panic v0.0.0-20210427145648-10f0f049f33c h1:yM2lSfLNnxqKdmc0mKDWdnlprStFPSfPm80PkRrOcRw=
 github.com/kklab-com/goth-panic v0.0.0-20210427145648-10f0f049f33c/go.mod h1:LAzKUp0CnY+66MG8lldBXKumPLAEu0tOVNPMCtumx7A=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
