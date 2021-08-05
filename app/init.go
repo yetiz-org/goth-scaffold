@@ -10,7 +10,7 @@ import (
 	"cloud.google.com/go/profiler"
 	"github.com/kklab-com/gone/http"
 	"github.com/kklab-com/gone/http/httpsession/redis"
-	daemon "github.com/kklab-com/goth-daemon"
+	kkdaemon "github.com/kklab-com/goth-daemon"
 	datastore "github.com/kklab-com/goth-kkdatastore"
 	kkgeoip "github.com/kklab-com/goth-kkgeoip"
 	"github.com/kklab-com/goth-kklogger"
@@ -34,12 +34,14 @@ func Init() {
 	LoggerInit()
 	StdRedirectInit()
 	HttpSessionInit()
-	ProfilerInit()
 	RegisterService()
-	daemon.Start()
+	kkdaemon.Start()
 }
 
 func RegisterService() {
+	kkdaemon.RegisterServiceInline("Profiler", 50, func() {
+		ProfilerInit()
+	}, nil)
 }
 
 func deferInitPanic() {

@@ -9,7 +9,7 @@ require (
 	github.com/kklab-com/gone v0.0.0-20210801055607-4ffce328058d
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca
-	github.com/kklab-com/goth-daemon v1.0.0
+	github.com/kklab-com/goth-daemon v1.0.2
 	github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242
 	github.com/kklab-com/goth-kkdatastore v0.0.0-20210512075701-f9e82787c682
 	github.com/kklab-com/goth-kkerror v0.0.0-20210329135318-f6c51d7cfc8c
