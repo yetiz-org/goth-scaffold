@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/kklab-com/gone/http"
+	"github.com/kklab-com/gone-http/http"
 	"github.com/kklab-com/goth-scaffold/app/handlers/endpoints"
 )
 

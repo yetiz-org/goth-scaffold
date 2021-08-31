@@ -3,7 +3,7 @@ package acceptances
 import (
 	"fmt"
 
-	"github.com/kklab-com/gone/http"
+	"github.com/kklab-com/gone-http/http"
 )
 
 type ExampleAcceptance struct{}

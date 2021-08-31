@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/profiler"
-	"github.com/kklab-com/gone/http"
-	"github.com/kklab-com/gone/http/httpsession/redis"
+	"github.com/kklab-com/gone-http/http"
+	"github.com/kklab-com/gone-http/http/httpsession/redis"
 	kkdaemon "github.com/kklab-com/goth-daemon"
 	datastore "github.com/kklab-com/goth-kkdatastore"
 	kkgeoip "github.com/kklab-com/goth-kkgeoip"

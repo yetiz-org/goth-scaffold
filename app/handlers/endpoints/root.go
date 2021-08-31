@@ -1,8 +1,8 @@
 package endpoints
 
 import (
-	"github.com/kklab-com/gone/channel"
-	"github.com/kklab-com/gone/http"
+	"github.com/kklab-com/gone-core/channel"
+	"github.com/kklab-com/gone-http/http"
 )
 
 type Root struct {

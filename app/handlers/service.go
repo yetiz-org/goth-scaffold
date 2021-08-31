@@ -3,8 +3,8 @@ package handlers
 import (
 	"net"
 
-	"github.com/kklab-com/gone/channel"
-	"github.com/kklab-com/gone/http"
+	"github.com/kklab-com/gone-core/channel"
+	"github.com/kklab-com/gone-http/http"
 )
 
 type Service struct {

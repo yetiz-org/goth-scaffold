@@ -1,7 +1,7 @@
 package acceptances
 
 import (
-	"github.com/kklab-com/gone/http"
+	"github.com/kklab-com/gone-http/http"
 )
 
 type ExampleMinorTask struct{}
