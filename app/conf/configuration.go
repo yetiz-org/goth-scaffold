@@ -22,11 +22,15 @@ type Configuration struct {
 		RedisName    string `yaml:"redis_name"`
 	} `yaml:"datastore"`
 	App struct {
+		Name              xtype.String `yaml:"name"`
 		DomainName  xtype.String `yaml:"domain_name"`
 		Port        int          `yaml:"port"`
 		Environment xtype.String `yaml:"environment"`
 	} `yaml:"app"`
 	Credentials struct {
+		Rollbar struct {
+			Token xtype.String `yaml:"token"`
+		} `yaml:"rollbar"`
 	} `yaml:"credentials"`
 	Http struct {
 		Scheme            string       `yaml:"scheme"`

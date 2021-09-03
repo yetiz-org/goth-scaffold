@@ -1,17 +1,12 @@
 package main
 
 import (
+	kkdaemon "github.com/kklab-com/goth-daemon"
 	"github.com/kklab-com/goth-scaffold/app"
-	"github.com/kklab-com/goth-scaffold/app/conf"
-	"github.com/kklab-com/goth-scaffold/app/handlers"
 )
 
 func main() {
-	startService()
-}
-
-func startService() {
-	app.Init()
-	service := handlers.Service{}
-	service.Start(conf.Config().App.Port)
+	app.Initialize()
+	kkdaemon.Start()
+	kkdaemon.WaitShutdown()
 }

@@ -4,10 +4,13 @@ datastore:
   database_name: goth-scaffold
   redis_name: goth-scaffold
 app:
+  name: "goth-scaffold"
   domain_name: goth-scaffold.kklab.com
   port: 8080
   environment: staging
 credentials:
+  rollbar:
+    token: ""
 http:
   scheme: https
   session_type: memory

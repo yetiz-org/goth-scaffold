@@ -80,8 +80,8 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kklab-com/gone-core v1.0.0 h1:WrOMIZ4wZLDHG/DFqTt8a5zrJ3Lonq9XTHmUZkZlzcQ=
 github.com/kklab-com/gone-core v1.0.0/go.mod h1:YygViIBlwtDcj8JW6mVSpBQ0aqW4iSMg6mWWAPfyAZs=
-github.com/kklab-com/gone-http v1.0.0 h1:zfhkrNLzDWeVa9Be9nZYshWNNCkyuyD5W86SxVKnbiQ=
-github.com/kklab-com/gone-http v1.0.0/go.mod h1:iq4FSl634lZysK5iJVZYZhfS2SRtNnO+seyw3TPXhZI=
+github.com/kklab-com/gone-http v1.0.1 h1:Thc93JvlX3qkIYYpLs1tP9IfUjrtY3e+WZvO6+Cb62c=
+github.com/kklab-com/gone-http v1.0.1/go.mod h1:iq4FSl634lZysK5iJVZYZhfS2SRtNnO+seyw3TPXhZI=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329103811-5b020e1d815f/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117 h1:kZ4oeh1Rtavfk56c8khjv6EAb+ZG675dEJzUtMa/ZtU=
 github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117/go.mod h1:VKBiNBuaC3u6WWhpU0sndqfxZOOV3yZIxUeBlBxckNw=
@@ -90,8 +90,8 @@ github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca h1:duB10
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca/go.mod h1:/CQupWAKI9SZjdmc1dAEECtQZXnWn3+OukRtPdLe6eU=
 github.com/kklab-com/goth-base62 v1.0.0 h1:tFIhY1a34asPh41GWfWafUd1DBrzHViOOM6RWm7XfRk=
 github.com/kklab-com/goth-base62 v1.0.0/go.mod h1:zVOUVB/1H/vmOnZHOovnOXaJ9hpRTgSx0Sv63v0xaDI=
-github.com/kklab-com/goth-daemon v1.0.2 h1:pbp3WFZIlJFM6nb4xxBM527AokJEhmhNAZHjXKae7dg=
-github.com/kklab-com/goth-daemon v1.0.2/go.mod h1:mDcNp1mEI8x0e03XpdVwLdXoTm0JANtx2Q7fU8fLI/Q=
+github.com/kklab-com/goth-daemon v1.2.9 h1:94AkFzE7NvAxyfmOHDgKwvzRWq/1aDnvT/9hVVd719Q=
+github.com/kklab-com/goth-daemon v1.2.9/go.mod h1:NtqXuwkR7Bo1MTLSRWn6vRqT2/nOK0aW6Ff9lR8nfJM=
 github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242 h1:pnLuQlvMiMJeJm5johpolBeui6g6tw7CaGkySSLjVSM=
 github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242/go.mod h1:vvWpyaUeAayKyBULWM8Ln5raIwd/hluxCeFXZVbFTrA=
 github.com/kklab-com/goth-kkdatastore v0.0.0-20210819125016-7ff14c247c10 h1:Y7pAO77wjcY8/3DUtTsc0zbj4xzHHlBXpSTS+Bm0KSA=
@@ -99,10 +99,7 @@ github.com/kklab-com/goth-kkdatastore v0.0.0-20210819125016-7ff14c247c10/go.mod 
 github.com/kklab-com/goth-kkerror v0.0.0-20210329094539-0929b4435347/go.mod h1:KEgEJZV0UeXoKcEiqWjKovSYZU1D/94XXtsD7pZAr90=
 github.com/kklab-com/goth-kkerror v0.0.0-20210329135318-f6c51d7cfc8c h1:3H690Rwgvhcfh4WEtWJXqmqutp0PcKSmCGYs4nWIOO8=
 github.com/kklab-com/goth-kkerror v0.0.0-20210329135318-f6c51d7cfc8c/go.mod h1:KEgEJZV0UeXoKcEiqWjKovSYZU1D/94XXtsD7pZAr90=
-github.com/kklab-com/goth-kkgeoip v0.0.0-20210407065303-cefce5ee0d51 h1:NB29Wm60PniwfyDTOLIlMVdR2bW2o3QT8jA6/myga2o=
-github.com/kklab-com/goth-kkgeoip v0.0.0-20210407065303-cefce5ee0d51/go.mod h1:mKZtXA+ZHqH6X5flfeKhhXplIyH9zV6P7CW2w2kx+RM=
 github.com/kklab-com/goth-kklogger v0.0.0-20210329100034-0d99b494f9a5/go.mod h1:nbgBjFc1QaE5eQi76hyGNGEhwr+HRjAzRB4zzg7NAmw=
-github.com/kklab-com/goth-kklogger v0.0.0-20210329135227-9693bea481eb/go.mod h1:nbgBjFc1QaE5eQi76hyGNGEhwr+HRjAzRB4zzg7NAmw=
 github.com/kklab-com/goth-kklogger v0.0.0-20210510033105-1f4bb2108d4e/go.mod h1:nbgBjFc1QaE5eQi76hyGNGEhwr+HRjAzRB4zzg7NAmw=
 github.com/kklab-com/goth-kklogger v1.0.0 h1:zXFPDI10NXm2uFsrcA8PAJercErWOt/646aiAYF7gWY=
 github.com/kklab-com/goth-kklogger v1.0.0/go.mod h1:nbgBjFc1QaE5eQi76hyGNGEhwr+HRjAzRB4zzg7NAmw=
@@ -117,9 +114,9 @@ github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a h1:tM
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
 github.com/kklab-com/goth-kkutil v1.0.2 h1:27E92Zgm/DXGQMGSP++I6cJNmM9ZCUtc53IHVmD6k10=
 github.com/kklab-com/goth-kkutil v1.0.2/go.mod h1:eEWfCIlXa/Fz/55CCl4XiuL1yG3mstVmmIuTHvn4UAI=
-github.com/kklab-com/goth-panic v0.0.0-20210427145648-10f0f049f33c/go.mod h1:LAzKUp0CnY+66MG8lldBXKumPLAEu0tOVNPMCtumx7A=
-github.com/kklab-com/goth-panic v1.0.1 h1:7btuOML+0KbS5j8Ixkk+6E9Hr5YYwy0wAxDM/ucqG/c=
 github.com/kklab-com/goth-panic v1.0.1/go.mod h1:FdgZSwGtF4kEqRO6OgDbzMgnrNKm8fMB6Fn/eORkaAU=
+github.com/kklab-com/goth-panic v1.0.2 h1:YOCZe7MTfmqicRkiuYed9i7ojQLK/NZN2Ceg9csA5m0=
+github.com/kklab-com/goth-panic v1.0.2/go.mod h1:FdgZSwGtF4kEqRO6OgDbzMgnrNKm8fMB6Fn/eORkaAU=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2 h1:DB17ag19krx9CFsz4o3enTrPXyIXCl+2iCXH/aMAp9s=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
@@ -141,10 +138,6 @@ github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+W
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
-github.com/oschwald/geoip2-golang v1.4.0 h1:5RlrjCgRyIGDz/mBmPfnAF4h8k0IAcRv9PvrpOfz+Ug=
-github.com/oschwald/geoip2-golang v1.4.0/go.mod h1:8QwxJvRImBH+Zl6Aa6MaIcs5YdlZSTKtzmPGzQqi9ng=
-github.com/oschwald/maxminddb-golang v1.6.0 h1:KAJSjdHQ8Kv45nFIbtoLGrGWqHFajOIm7skTyz/+Dls=
-github.com/oschwald/maxminddb-golang v1.6.0/go.mod h1:DUJFucBg2cvqx42YmDa/+xHvb0elJtOm3o4aFQ/nb/w=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -166,7 +159,6 @@ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
-github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
@@ -212,7 +204,6 @@ golang.org/x/sys v0.0.0-20181116152217-5ac8a444bdc5/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/sys v0.0.0-20181122145206-62eef0e2fa9b/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190422165155-953cdadca894/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20191224085550-c709ea063b76/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8 h1:JA8d3MPx/IToSyXZG/RhwYEtfrKO1Fxrqe8KrkiLXKM=
 golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

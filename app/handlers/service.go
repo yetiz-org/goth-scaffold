@@ -2,22 +2,26 @@ package handlers
 
 import (
 	"net"
+	"os"
 
 	"github.com/kklab-com/gone-core/channel"
 	"github.com/kklab-com/gone-http/http"
 )
 
+var AppService = &Service{}
+
 type Service struct {
+	ch  channel.Channel
+	sig chan os.Signal
 }
 
-func (k *Service) Start(port int) {
-	if port == 0 {
-		port = 8080
-	}
+func (k *Service) Start(localAddr net.Addr) {
+	serverBootstrap := channel.NewServerBootstrap()
+	serverBootstrap.ChannelType(&http.ServerChannel{})
+	serverBootstrap.ChildHandler(channel.NewInitializer(new(Initializer).Init))
+	k.ch = serverBootstrap.Bind(localAddr).Sync().Channel()
+}
 
-	bootstrap := channel.NewServerBootstrap()
-	bootstrap.ChannelType(&http.ServerChannel{})
-	bootstrap.ChildHandler(channel.NewInitializer(new(Initializer).Init))
-	channel := bootstrap.Bind(&net.TCPAddr{IP: nil, Port: port}).Sync().Channel()
-	channel.CloseFuture().Sync()
+func (k *Service) Stop() {
+	k.ch.Close()
 }
