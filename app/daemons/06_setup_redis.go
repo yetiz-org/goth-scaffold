@@ -7,6 +7,7 @@ import (
 	kklogger "github.com/kklab-com/goth-kklogger"
 	"github.com/kklab-com/goth-scaffold/app/conf"
 	redis2 "github.com/kklab-com/goth-scaffold/app/services/redis"
+	"github.com/pkg/errors"
 )
 
 var DaemonSetupRedis = &SetupRedis{}
@@ -22,6 +23,14 @@ func (d *SetupRedis) Start() {
 	datastore.KKRedisMaxIdle = 10
 	datastore.KKRedisMaxActive = 2000
 	datastore.KKRedisWait = true
+
+	if redis2.Master() == nil {
+		panic(errors.Errorf("can't connect to master"))
+	}
+
+	if redis2.Slave() == nil {
+		panic(errors.Errorf("can't connect to slave"))
+	}
 
 	if r := redis2.Master().Keys("*"); r.Error != nil {
 		kklogger.ErrorJ("daemon.SetupRedis#Master", r.Error)

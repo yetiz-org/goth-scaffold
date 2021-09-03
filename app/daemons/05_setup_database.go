@@ -5,6 +5,7 @@ import (
 	datastore "github.com/kklab-com/goth-kkdatastore"
 	kklogger "github.com/kklab-com/goth-kklogger"
 	"github.com/kklab-com/goth-scaffold/app/services/db"
+	"github.com/pkg/errors"
 )
 
 var DaemonSetupDatabase = &SetupDatabase{}
@@ -20,6 +21,14 @@ func (d *SetupDatabase) Start() {
 	datastore.KKDBParamWriterMaxOpenConn = 2
 	datastore.KKDBParamWriterMaxIdleConn = 1
 	datastore.KKDBParamConnMaxLifetime = 60000
+
+	if db.Writer() == nil {
+		panic(errors.Errorf("can't connect to writer"))
+	}
+
+	if db.Reader() == nil {
+		panic(errors.Errorf("can't connect to reader"))
+	}
 
 	if err := db.Writer().Exec("select table_name from information_schema.tables limit 1").Error; err != nil {
 		kklogger.ErrorJ("daemon.SetupDatabase#Writer", err)
