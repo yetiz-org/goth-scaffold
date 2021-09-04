@@ -10,6 +10,8 @@ ADD config.yaml /
 ADD resources /resources
 ADD launcher /
 ADD exec /exec
+# For GCP Profiler
+ENV GOOGLE_APPLICATION_CREDENTIALS=/gcp_profiler_credential.json
 ENV GOGC=100
 
 EXPOSE 8080
