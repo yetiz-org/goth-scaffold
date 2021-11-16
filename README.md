@@ -36,7 +36,11 @@ go build -v
 
 ```
 /app
+  /build_info              - build info pass in by build script (.gitlab-ci.yml)
+  /conf                    - configuration file struct folder
+    configuration.go       - service configuration file parse struct
   /constant                - constant value
+  /daemons                 - daemon process with order
   /errors                  - error struct
     /response              - error response
   /handlers                - http handler
@@ -51,8 +55,6 @@ go build -v
     /api                   - service api model
     /database              - service database model
   /services                - helper/services
-  build_info.go            - build info pass in by build script (.gitlab-ci.yml)
-  configuration.go         - service configuration file parse struct
   init.go                  - service init procedure define
 /components                - common libs, for service without any git repo.
 /database                  - database definition
