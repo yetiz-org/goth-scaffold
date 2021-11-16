@@ -12,7 +12,7 @@ add go file to `/app/handlers/endpoints` and add route to `/app/handlers/route.g
 
 ### Add configuration parameter
 
-1. edit `/app/configuration.go`
+1. edit `/app/conf/configuration.go`
 2. edit `config.yaml`
 
 ### Add more program parameter
@@ -30,6 +30,16 @@ edit `/app/init.go#FlagParse()`
 ```bash
 go build -v
 ./<execute_file_name>
+```
+
+### Build with target architecture
+
+```bash
+# amd64
+GOOS=linux GOARCH=amd64 go build
+
+# arm64
+GOOS=linux GOARCH=arm64 go build
 ```
 
 ## Project Struct
