@@ -90,8 +90,8 @@ github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca h1:duB10
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca/go.mod h1:/CQupWAKI9SZjdmc1dAEECtQZXnWn3+OukRtPdLe6eU=
 github.com/kklab-com/goth-base62 v1.0.0 h1:tFIhY1a34asPh41GWfWafUd1DBrzHViOOM6RWm7XfRk=
 github.com/kklab-com/goth-base62 v1.0.0/go.mod h1:zVOUVB/1H/vmOnZHOovnOXaJ9hpRTgSx0Sv63v0xaDI=
-github.com/kklab-com/goth-daemon v1.2.11 h1:fJu+FLb1y2H7uXPVjfYd6A8IIhz5Llg5z2rLf7xpwVg=
-github.com/kklab-com/goth-daemon v1.2.11/go.mod h1:NtqXuwkR7Bo1MTLSRWn6vRqT2/nOK0aW6Ff9lR8nfJM=
+github.com/kklab-com/goth-daemon v1.2.18 h1:8Z9nZakoH7vOQW4UfMQjp/lm27D3O1J01YATStUKNkk=
+github.com/kklab-com/goth-daemon v1.2.18/go.mod h1:ZvMud97Yoxi6mlEeOxTchaUHKgfx1zMSTUEv507TAYU=
 github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242 h1:pnLuQlvMiMJeJm5johpolBeui6g6tw7CaGkySSLjVSM=
 github.com/kklab-com/goth-erresponse v0.0.0-20210520100247-3f5245440242/go.mod h1:vvWpyaUeAayKyBULWM8Ln5raIwd/hluxCeFXZVbFTrA=
 github.com/kklab-com/goth-kkdatastore v0.0.0-20210903145108-8c008b6660f0 h1:kGMfsUpALkMMzpkp1DI4kJhKhR94sn1ZXIsy1Fs7Ybo=
@@ -111,8 +111,9 @@ github.com/kklab-com/goth-kktemplate v0.0.0-20210423091942-a7a4fbc478cb/go.mod h
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329104645-f7e9ba6a91de/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a h1:tMXs0MKQWprdhMBkgAyJ3Wab0gH58qEAEx/aWyz7PEs=
 github.com/kklab-com/goth-kktranslation v0.0.0-20210329135445-e8f8c3a9494a/go.mod h1:MfL9bzaQOoFCclmZVRZqspU7XIFGUmS3JAneOwg82+M=
-github.com/kklab-com/goth-kkutil v1.0.10 h1:IIRjqIuD1Ml5vNUDqMhx9644NRElUSN8+rm5vGEQT3E=
 github.com/kklab-com/goth-kkutil v1.0.10/go.mod h1:eEWfCIlXa/Fz/55CCl4XiuL1yG3mstVmmIuTHvn4UAI=
+github.com/kklab-com/goth-kkutil v1.0.11 h1:MAS/acPkoyUzojJcedveBGhed2FAxiFxh90eTtGLQ6U=
+github.com/kklab-com/goth-kkutil v1.0.11/go.mod h1:eEWfCIlXa/Fz/55CCl4XiuL1yG3mstVmmIuTHvn4UAI=
 github.com/kklab-com/goth-panic v1.0.1/go.mod h1:FdgZSwGtF4kEqRO6OgDbzMgnrNKm8fMB6Fn/eORkaAU=
 github.com/kklab-com/goth-panic v1.0.2 h1:YOCZe7MTfmqicRkiuYed9i7ojQLK/NZN2Ceg9csA5m0=
 github.com/kklab-com/goth-panic v1.0.2/go.mod h1:FdgZSwGtF4kEqRO6OgDbzMgnrNKm8fMB6Fn/eORkaAU=
