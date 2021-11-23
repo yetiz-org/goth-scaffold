@@ -3,7 +3,7 @@ module github.com/kklab-com/goth-scaffold
 go 1.16
 
 require (
-	cloud.google.com/go v0.38.0
+	cloud.google.com/go/profiler v0.1.1
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/jinzhu/gorm v1.9.11
 	github.com/kklab-com/gone-core v1.0.15
