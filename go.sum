@@ -222,8 +222,8 @@ github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca h1:duB10
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca/go.mod h1:/CQupWAKI9SZjdmc1dAEECtQZXnWn3+OukRtPdLe6eU=
 github.com/kklab-com/goth-base62 v1.0.0 h1:tFIhY1a34asPh41GWfWafUd1DBrzHViOOM6RWm7XfRk=
 github.com/kklab-com/goth-base62 v1.0.0/go.mod h1:zVOUVB/1H/vmOnZHOovnOXaJ9hpRTgSx0Sv63v0xaDI=
-github.com/kklab-com/goth-daemon v1.2.21 h1:j+o805gF4shLKS3oPAVdjBE2NY7WM6Gon61mhLe0QMs=
-github.com/kklab-com/goth-daemon v1.2.21/go.mod h1:UsrwrPZ07o85Bu+b1PaN/tS6V4DF9X6oJYxk8CL55Yk=
+github.com/kklab-com/goth-daemon v1.3.3 h1:XIrQQypDF7Ea2fPtr4Boz0az7p1mTe7ris7vev6Mfsw=
+github.com/kklab-com/goth-daemon v1.3.3/go.mod h1:oWQAzvzfeOxVp8CQqquaC2d05a37liGPd2xqz3wuAK0=
 github.com/kklab-com/goth-erresponse v1.0.0 h1:xuISnShxXA+rgYwMPwVzj5DL0pMDbdXObtJOj9iAEqk=
 github.com/kklab-com/goth-erresponse v1.0.0/go.mod h1:dicPvRSKG8bvUV9Z/GM/FLbLlUCm0a2NYoDkM/HbXHU=
 github.com/kklab-com/goth-kkdatastore v0.0.0-20211119160428-474ac67a3ef2 h1:cyFnTElipp28INWjam1tAWd5HkZUf4yfkAKVaxgPpHk=
@@ -240,8 +240,9 @@ github.com/kklab-com/goth-kktemplate v1.0.0 h1:1zr8/TrkpUSB2WvzINX88DcUXNU8mew6u
 github.com/kklab-com/goth-kktemplate v1.0.0/go.mod h1:ftCCf65tmeXDitPwBfa61kHyPMEj+gD2W5ZTInYmOBI=
 github.com/kklab-com/goth-kktranslation v1.0.0 h1:PyYVX8EKLwErwNqJnJLerIY2JvwAZvrId/v2agKryuQ=
 github.com/kklab-com/goth-kktranslation v1.0.0/go.mod h1:1KQRgN+VTKIBRPLMJ0tQ+xHnhHnsnafMwz2GodfnVL4=
-github.com/kklab-com/goth-kkutil v1.0.12 h1:4BVyTDvqnEdcM1+ost4n0cjfwvooZqwe+rP2QN4FyQ8=
 github.com/kklab-com/goth-kkutil v1.0.12/go.mod h1:eEWfCIlXa/Fz/55CCl4XiuL1yG3mstVmmIuTHvn4UAI=
+github.com/kklab-com/goth-kkutil v1.0.13 h1:QTPfsfdBxzvp73WCfnlvojngPfI03keV96ePkl/SUZo=
+github.com/kklab-com/goth-kkutil v1.0.13/go.mod h1:eEWfCIlXa/Fz/55CCl4XiuL1yG3mstVmmIuTHvn4UAI=
 github.com/kklab-com/goth-panic v1.0.3 h1:y7nvX7dXz9FXHDtciEjqbM4eY/zYZYTerZ2Ijf7TxZA=
 github.com/kklab-com/goth-panic v1.0.3/go.mod h1:dgrGkVi+i2nIz1Yqf5UTiasAhSC/wskD+hHzsvmdU5Q=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
@@ -277,6 +278,8 @@ github.com/prometheus/common v0.2.0/go.mod h1:TNfzLD0ON7rHzMJeJkieUDPYmFC7Snx/y8
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
+github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
+github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

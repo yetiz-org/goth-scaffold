@@ -8,5 +8,5 @@ import (
 func main() {
 	app.Initialize()
 	kkdaemon.Start()
-	kkdaemon.WaitShutdown()
+	kkdaemon.ShutdownFuture().Await()
 }

@@ -45,14 +45,15 @@ func FlagParse() {
 }
 
 func _RegisterDaemonService() {
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(01, daemons.DaemonSetupEnvironment))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(02, daemons.DaemonSetupLogger))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(03, daemons.DaemonSetupStdoutCatch))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(04, daemons.DaemonSetupProfiler))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(05, daemons.DaemonSetupDatabase))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(06, daemons.DaemonSetupRedis))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(07, daemons.DaemonSetupHttpSession))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(80, daemons.DaemonLoopExample))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(97, daemons.DaemonSetupUpDown))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(999, daemons.DaemonSetupLaunchService))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupEnvironment))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupLogger))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupStdoutCatch))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupProfiler))
+	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupDatabase))
+	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupRedis))
+	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupHttpSession))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonTimerLoopExample))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSchedulerLoopExample))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupUpDown))
+	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupLaunchService))
 }
