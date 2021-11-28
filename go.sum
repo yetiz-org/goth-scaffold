@@ -222,8 +222,8 @@ github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca h1:duB10
 github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca/go.mod h1:/CQupWAKI9SZjdmc1dAEECtQZXnWn3+OukRtPdLe6eU=
 github.com/kklab-com/goth-base62 v1.0.0 h1:tFIhY1a34asPh41GWfWafUd1DBrzHViOOM6RWm7XfRk=
 github.com/kklab-com/goth-base62 v1.0.0/go.mod h1:zVOUVB/1H/vmOnZHOovnOXaJ9hpRTgSx0Sv63v0xaDI=
-github.com/kklab-com/goth-daemon v1.3.3 h1:XIrQQypDF7Ea2fPtr4Boz0az7p1mTe7ris7vev6Mfsw=
-github.com/kklab-com/goth-daemon v1.3.3/go.mod h1:oWQAzvzfeOxVp8CQqquaC2d05a37liGPd2xqz3wuAK0=
+github.com/kklab-com/goth-daemon v1.3.4 h1:QfpQIBQ0wLrVyl6SlzfC2Ktdn1myRlLTz578pjDMqaQ=
+github.com/kklab-com/goth-daemon v1.3.4/go.mod h1:oWQAzvzfeOxVp8CQqquaC2d05a37liGPd2xqz3wuAK0=
 github.com/kklab-com/goth-erresponse v1.0.0 h1:xuISnShxXA+rgYwMPwVzj5DL0pMDbdXObtJOj9iAEqk=
 github.com/kklab-com/goth-erresponse v1.0.0/go.mod h1:dicPvRSKG8bvUV9Z/GM/FLbLlUCm0a2NYoDkM/HbXHU=
 github.com/kklab-com/goth-kkdatastore v0.0.0-20211119160428-474ac67a3ef2 h1:cyFnTElipp28INWjam1tAWd5HkZUf4yfkAKVaxgPpHk=
