@@ -10,7 +10,7 @@ require (
 	github.com/kklab-com/gone-http v1.0.15
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca
-	github.com/kklab-com/goth-daemon v1.3.4
+	github.com/kklab-com/goth-daemon v1.4.0
 	github.com/kklab-com/goth-erresponse v1.0.0
 	github.com/kklab-com/goth-kkdatastore v0.0.0-20211119160428-474ac67a3ef2
 	github.com/kklab-com/goth-kkerror v0.0.0-20210329135318-f6c51d7cfc8c
