@@ -7,6 +7,9 @@ import (
 
 func main() {
 	app.Initialize()
-	kkdaemon.Start()
+	if kkdaemon.Start() != nil {
+		kkdaemon.ShutdownGracefully()
+	}
+
 	kkdaemon.ShutdownFuture().Await()
 }
