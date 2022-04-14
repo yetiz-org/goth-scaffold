@@ -6,11 +6,11 @@ require (
 	cloud.google.com/go/profiler v0.2.0
 	github.com/gomodule/redigo v1.8.8
 	github.com/jinzhu/gorm v1.9.11
-	github.com/kklab-com/gone-core v1.1.3
-	github.com/kklab-com/gone-http v1.1.3
+	github.com/kklab-com/gone-core v1.1.5
+	github.com/kklab-com/gone-http v1.1.5
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca
-	github.com/kklab-com/goth-bytebuf v1.0.0
+	github.com/kklab-com/goth-bytebuf v1.0.1
 	github.com/kklab-com/goth-daemon v1.4.4
 	github.com/kklab-com/goth-erresponse v1.0.0
 	github.com/kklab-com/goth-kkdatastore v0.0.0-20220207053650-75eea60fcd9b
@@ -20,7 +20,7 @@ require (
 	github.com/kklab-com/goth-kkstdcatcher v0.0.0-20210423101509-380564d2e888
 	github.com/kklab-com/goth-kktemplate v1.0.0
 	github.com/kklab-com/goth-kktranslation v1.0.0
-	github.com/kklab-com/goth-kkutil v1.3.0
+	github.com/kklab-com/goth-kkutil v1.3.2
 	github.com/kklab-com/goth-panic v1.0.4
 	github.com/pkg/errors v0.8.0
 	gopkg.in/yaml.v2 v2.2.7
@@ -43,7 +43,7 @@ require (
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/kklab-com/goth-base62 v1.0.0 // indirect
-	github.com/kklab-com/goth-concurrent v1.0.1 // indirect
+	github.com/kklab-com/goth-concurrent v1.1.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
