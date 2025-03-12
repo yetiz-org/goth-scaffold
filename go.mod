@@ -1,21 +1,23 @@
 module github.com/kklab-com/goth-scaffold
 
-go 1.17
+go 1.22
+
+toolchain go1.24.0
 
 require (
 	cloud.google.com/go/profiler v0.2.0
 	github.com/gomodule/redigo v1.8.8
 	github.com/jinzhu/gorm v1.9.11
-	github.com/kklab-com/gone-core v1.1.5
-	github.com/kklab-com/gone-http v1.1.5
+	github.com/kklab-com/gone-core v1.3.0
+	github.com/kklab-com/gone-http v1.5.0
 	github.com/kklab-com/gone-httpheadername v0.0.0-20210329135429-db3f484c9117
 	github.com/kklab-com/gone-httpstatus v0.0.0-20210329135420-5f09bea125ca
 	github.com/kklab-com/goth-bytebuf v1.0.1
 	github.com/kklab-com/goth-daemon v1.4.4
-	github.com/kklab-com/goth-erresponse v1.0.0
+	github.com/kklab-com/goth-erresponse v1.0.1
 	github.com/kklab-com/goth-kkdatastore v0.0.0-20220207053650-75eea60fcd9b
 	github.com/kklab-com/goth-kkerror v0.0.0-20210329135318-f6c51d7cfc8c
-	github.com/kklab-com/goth-kklogger v1.0.1
+	github.com/kklab-com/goth-kklogger v1.1.0
 	github.com/kklab-com/goth-kksecret v0.0.0-20210515110028-29a17b1b6d85
 	github.com/kklab-com/goth-kkstdcatcher v0.0.0-20210423101509-380564d2e888
 	github.com/kklab-com/goth-kktemplate v1.0.0
@@ -43,18 +45,18 @@ require (
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/kklab-com/goth-base62 v1.0.0 // indirect
-	github.com/kklab-com/goth-concurrent v1.1.0 // indirect
+	github.com/kklab-com/goth-concurrent v1.2.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tdewolff/minify/v2 v2.7.4 // indirect
 	github.com/tdewolff/parse/v2 v2.4.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/api v0.65.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

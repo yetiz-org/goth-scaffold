@@ -22,7 +22,7 @@ type Configuration struct {
 		RedisName    string `yaml:"redis_name"`
 	} `yaml:"datastore"`
 	App struct {
-		Name              xtype.String `yaml:"name"`
+		Name        xtype.String `yaml:"name"`
 		DomainName  xtype.String `yaml:"domain_name"`
 		Port        int          `yaml:"port"`
 		Environment xtype.String `yaml:"environment"`
@@ -67,6 +67,9 @@ func Config() *Configuration {
 		if configInstance == nil {
 			configInstance = new(Configuration)
 			configInstance._Init()
+			if configInstance.Logger.LoggerPath == "" {
+				configInstance.Logger.LoggerPath = "alloc/logs/"
+			}
 		}
 	}
 
