@@ -4,9 +4,9 @@ import (
 	"net"
 	"os"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	"github.com/kklab-com/goth-scaffold/app/conf"
-	"github.com/kklab-com/goth-scaffold/app/handlers"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
+	"github.com/yetiz-org/goth-scaffold/app/handlers"
 )
 
 var DaemonSetupLaunchService = &SetupLaunchService{}

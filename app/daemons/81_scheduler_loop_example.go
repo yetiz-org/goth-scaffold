@@ -3,7 +3,7 @@ package daemons
 import (
 	"os"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
 )
 
 var DaemonSchedulerLoopExample = new(SchedulerLoopExample)

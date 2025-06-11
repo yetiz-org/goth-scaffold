@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kklab-com/gone-http/http"
-	"github.com/kklab-com/gone-http/http/httpsession/redis"
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	"github.com/kklab-com/goth-scaffold/app/conf"
+	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/gone/http/httpsession/redis"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
 var DaemonSetupHttpSession = &SetupHttpSession{}

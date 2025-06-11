@@ -1,8 +1,8 @@
 package redis
 
 import (
-	datastore "github.com/kklab-com/goth-kkdatastore"
-	"github.com/kklab-com/goth-scaffold/app/conf"
+	datastore "github.com/yetiz-org/goth-kkdatastore"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
 func Master() *datastore.KKRedisOp {

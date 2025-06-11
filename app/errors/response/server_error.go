@@ -1,9 +1,10 @@
 package response
 
 import (
-	"github.com/kklab-com/gone-httpstatus"
-	"github.com/kklab-com/goth-erresponse"
-	"github.com/kklab-com/goth-kkerror"
+	"github.com/yetiz-org/gone/erresponse"
+	"github.com/yetiz-org/gone/http/httpstatus"
+	"github.com/yetiz-org/goth-kkerror"
+	kkerror "github.com/yetiz-org/goth-kkerror"
 )
 
 var ServerError = &erresponse.DefaultErrorResponse{

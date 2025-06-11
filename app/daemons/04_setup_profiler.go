@@ -2,12 +2,12 @@ package daemons
 
 import (
 	"fmt"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	kklogger "github.com/yetiz-org/goth-kklogger"
 
 	"cloud.google.com/go/profiler"
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	kklogger "github.com/kklab-com/goth-kklogger"
-	"github.com/kklab-com/goth-scaffold/app/build_info"
-	"github.com/kklab-com/goth-scaffold/app/conf"
+	"github.com/yetiz-org/goth-scaffold/app/build_info"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
 var DaemonSetupProfiler = &SetupProfiler{}

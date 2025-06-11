@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	kklogger "github.com/kklab-com/goth-kklogger"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	kklogger "github.com/yetiz-org/goth-kklogger"
 )
 
 var DaemonSetupUpDown = &SetupUpDown{}

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kklab-com/gone-core/channel"
-	"github.com/kklab-com/gone-http/http"
-	"github.com/kklab-com/goth-scaffold/app/conf"
+	"github.com/yetiz-org/gone/channel"
+	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
 type Initializer struct {

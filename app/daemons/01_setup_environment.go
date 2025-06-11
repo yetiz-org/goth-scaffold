@@ -4,9 +4,9 @@ import (
 	"os"
 	"runtime"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	kksecret "github.com/kklab-com/goth-kksecret"
-	"github.com/kklab-com/goth-scaffold/app/conf"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	kksecret "github.com/yetiz-org/goth-kksecret"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
 var DaemonSetupEnvironment = &SetupEnvironment{}

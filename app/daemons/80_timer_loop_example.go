@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
 )
 
 var DaemonTimerLoopExample = new(TimerLoopExample)

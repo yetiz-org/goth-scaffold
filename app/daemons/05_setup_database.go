@@ -1,11 +1,11 @@
 package daemons
 
 import (
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	datastore "github.com/kklab-com/goth-kkdatastore"
-	kklogger "github.com/kklab-com/goth-kklogger"
-	"github.com/kklab-com/goth-scaffold/app/services/db"
 	"github.com/pkg/errors"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	datastore "github.com/yetiz-org/goth-kkdatastore"
+	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/services/db"
 )
 
 var DaemonSetupDatabase = &SetupDatabase{}

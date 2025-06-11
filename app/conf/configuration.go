@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/kklab-com/goth-kkutil/xtype"
+	"github.com/yetiz-org/goth-kkutil/xtype"
 	"gopkg.in/yaml.v2"
 )
 

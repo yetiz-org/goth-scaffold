@@ -1,13 +1,13 @@
 package daemons
 
 import (
-	"github.com/kklab-com/gone-http/http/httpsession/redis"
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	datastore "github.com/kklab-com/goth-kkdatastore"
-	kklogger "github.com/kklab-com/goth-kklogger"
-	"github.com/kklab-com/goth-scaffold/app/conf"
-	redis2 "github.com/kklab-com/goth-scaffold/app/services/redis"
 	"github.com/pkg/errors"
+	"github.com/yetiz-org/gone/http/httpsession/redis"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	datastore "github.com/yetiz-org/goth-kkdatastore"
+	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
+	redis2 "github.com/yetiz-org/goth-scaffold/app/services/redis"
 )
 
 var DaemonSetupRedis = &SetupRedis{}

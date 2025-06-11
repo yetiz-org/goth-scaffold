@@ -1,8 +1,8 @@
 package acceptances
 
 import (
-	"github.com/kklab-com/gone-core/channel"
-	"github.com/kklab-com/gone-http/http"
+	"github.com/yetiz-org/gone/channel"
+	"github.com/yetiz-org/gone/http"
 )
 
 type ExampleMinorTask struct{}

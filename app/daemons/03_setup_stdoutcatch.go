@@ -1,9 +1,9 @@
 package daemons
 
 import (
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	kklogger "github.com/kklab-com/goth-kklogger"
-	kkstdcatcher "github.com/kklab-com/goth-kkstdcatcher"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	kklogger "github.com/yetiz-org/goth-kklogger"
+	kkstdcatcher "github.com/yetiz-org/goth-kkstdcatcher"
 )
 
 var DaemonSetupStdoutCatch = &SetupStdoutCatch{}
@@ -13,11 +13,11 @@ type SetupStdoutCatch struct {
 }
 
 func (d *SetupStdoutCatch) Start() {
-	kkstdcatcher.StdoutWriteFunc = func(s string) {
+	kkstdcatcher.DefaultInstance().StdoutWriteFunc = func(s string) {
 		kklogger.InfoJ("STDOUT", s)
 	}
 
-	kkstdcatcher.StderrWriteFunc = func(s string) {
+	kkstdcatcher.DefaultInstance().StderrWriteFunc = func(s string) {
 		kklogger.ErrorJ("STDERR", s)
 	}
 

@@ -3,13 +3,13 @@ package app
 import (
 	"flag"
 	"fmt"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
 	"os"
 
-	kkdaemon "github.com/kklab-com/goth-daemon"
-	kkpanic "github.com/kklab-com/goth-panic"
-	"github.com/kklab-com/goth-scaffold/app/build_info"
-	"github.com/kklab-com/goth-scaffold/app/conf"
-	"github.com/kklab-com/goth-scaffold/app/daemons"
+	kkpanic "github.com/yetiz-org/goth-panic"
+	"github.com/yetiz-org/goth-scaffold/app/build_info"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
+	"github.com/yetiz-org/goth-scaffold/app/daemons"
 )
 
 var (

@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/kklab-com/gone-http/http"
-	"github.com/kklab-com/goth-scaffold/app/handlers/endpoints"
+	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/goth-scaffold/app/handlers/endpoints"
 )
 
 type Route struct {
