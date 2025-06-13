@@ -9,9 +9,9 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/jinzhu/gorm"
 	"github.com/yetiz-org/gone/channel"
-	"github.com/yetiz-org/gone/http"
-	"github.com/yetiz-org/gone/http/httpheadername"
-	"github.com/yetiz-org/gone/http/httpstatus"
+	"github.com/yetiz-org/gone/ghttp"
+	"github.com/yetiz-org/gone/ghttp/httpheadername"
+	"github.com/yetiz-org/gone/ghttp/httpstatus"
 	buf "github.com/yetiz-org/goth-bytebuf"
 	"github.com/yetiz-org/goth-kkdatastore"
 	"github.com/yetiz-org/goth-kklogger"
@@ -24,78 +24,78 @@ import (
 )
 
 type HandlerTask struct {
-	http.DefaultHTTPHandlerTask
+	ghttp.DefaultHTTPHandlerTask
 }
 
-func (h *HandlerTask) PreCheck(req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) PreCheck(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	return nil
 }
 
-func (h *HandlerTask) Index(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
-	return http.NotImplemented
+func (h *HandlerTask) Index(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
+	return ghttp.NotImplemented
 }
 
-func (h *HandlerTask) Get(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Get(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Post(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Post(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Put(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Put(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Delete(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Delete(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Options(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Options(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	return nil
 }
 
-func (h *HandlerTask) Patch(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Patch(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Trace(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Trace(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Connect(ctx channel.HandlerContext, req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Connect(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	resp.SetStatusCode(httpstatus.MethodNotAllowed)
 	return nil
 }
 
-func (h *HandlerTask) Before(req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) Before(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	return nil
 }
 
-func (h *HandlerTask) After(req *http.Request, resp *http.Response, params map[string]interface{}) http.ErrorResponse {
+func (h *HandlerTask) After(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
 	return nil
 }
 
-func (h *HandlerTask) ErrorCaught(req *http.Request, resp *http.Response, params map[string]interface{}, err http.ErrorResponse) error {
+func (h *HandlerTask) ErrorCaught(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}, err ghttp.ErrorResponse) error {
 	resp.ResponseError(err)
 	return nil
 }
 
-func (h *HandlerTask) ResponseError(er http.ErrorResponse, resp *http.Response) {
+func (h *HandlerTask) ResponseError(er ghttp.ErrorResponse, resp *ghttp.Response) {
 	resp.ResponseError(er)
 }
 
-func (h *HandlerTask) Redirect(redirectUrl string, resp *http.Response) {
+func (h *HandlerTask) Redirect(redirectUrl string, resp *ghttp.Response) {
 	resp.Redirect(redirectUrl)
 }
 
-func (h *HandlerTask) RenderHtml(templateName string, config *RenderConfig, resp *http.Response) {
+func (h *HandlerTask) RenderHtml(templateName string, config *RenderConfig, resp *ghttp.Response) {
 	if tmpl, err := kktemplate.LoadFrameHtml(templateName, h.Lang(resp.Request())); err == nil {
 		buffer := buf.EmptyByteBuf()
 		renderVars := h._RenderVars(templateName, config, resp)
@@ -130,7 +130,7 @@ func (h *HandlerTask) T(message string, lang string) string {
 	return kktranslation.GetLangFile(lang).T(message)
 }
 
-func (h *HandlerTask) Lang(req *http.Request) string {
+func (h *HandlerTask) Lang(req *ghttp.Request) string {
 	lang := strings.ToLower(req.FormValue(query.Lang))
 
 	if lang == "" {
@@ -165,7 +165,7 @@ type RenderConfig struct {
 	PageRenderData   map[string]interface{}
 }
 
-func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *http.Response) map[string]interface{} {
+func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ghttp.Response) map[string]interface{} {
 	if config == nil {
 		config = &RenderConfig{}
 	}
@@ -227,7 +227,7 @@ func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *htt
 	return renderVars
 }
 
-func (h *HandlerTask) SessionRenderData(resp *http.Response, key string, value interface{}) {
+func (h *HandlerTask) SessionRenderData(resp *ghttp.Response, key string, value interface{}) {
 	if resp != nil {
 		session := resp.Request().Session()
 		m := map[string]interface{}{}

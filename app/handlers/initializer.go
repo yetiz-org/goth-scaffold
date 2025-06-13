@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/yetiz-org/gone/channel"
-	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/gone/ghttp"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
@@ -14,15 +14,15 @@ type Initializer struct {
 }
 
 var initializerOnce sync.Once
-var logHandler *http.LogHandler
+var logHandler *ghttp.LogHandler
 var gzipHandler, dispatchHandler channel.Handler
 
 func (i *Initializer) Init(ch channel.Channel) {
 	initializerOnce.Do(func() {
-		logHandler = http.NewLogHandler(strings.ToUpper(conf.Config().App.Environment.String()) != "PRODUCTION")
-		gzipHandler = new(http.GZipHandler)
-		dispatchHandler = http.NewDispatchHandler(NewRoute())
-		logHandler.FilterFunc = func(req *http.Request, resp *http.Response, params map[string]interface{}) bool {
+		logHandler = ghttp.NewLogHandler(strings.ToUpper(conf.Config().App.Environment.String()) != "PRODUCTION")
+		gzipHandler = new(ghttp.GZipHandler)
+		dispatchHandler = ghttp.NewDispatchHandler(NewRoute())
+		logHandler.FilterFunc = func(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) bool {
 			return req.RequestURI() != "/health"
 		}
 	})

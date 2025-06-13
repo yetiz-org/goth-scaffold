@@ -9,7 +9,7 @@ require (
 	github.com/gomodule/redigo v1.8.8
 	github.com/jinzhu/gorm v1.9.11
 	github.com/pkg/errors v0.8.1
-	github.com/yetiz-org/gone v1.5.1
+	github.com/yetiz-org/gone v1.6.0
 	github.com/yetiz-org/goth-bytebuf v0.0.0-20250611120548-fb5bbb6566e6
 	github.com/yetiz-org/goth-daemon v1.6.0
 	github.com/yetiz-org/goth-kkdatastore v0.0.0-20250611122709-de5aa6933b0b

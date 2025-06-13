@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/yetiz-org/gone/channel"
-	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/gone/ghttp"
 )
 
 var AppService = &Service{}
@@ -17,7 +17,7 @@ type Service struct {
 
 func (k *Service) Start(localAddr net.Addr) {
 	serverBootstrap := channel.NewServerBootstrap()
-	serverBootstrap.ChannelType(&http.ServerChannel{})
+	serverBootstrap.ChannelType(&ghttp.ServerChannel{})
 	serverBootstrap.ChildHandler(channel.NewInitializer(new(Initializer).Init))
 	k.ch = serverBootstrap.Bind(localAddr).Sync().Channel()
 }

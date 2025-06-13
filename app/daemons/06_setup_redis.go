@@ -2,7 +2,7 @@ package daemons
 
 import (
 	"github.com/pkg/errors"
-	"github.com/yetiz-org/gone/http/httpsession/redis"
+	"github.com/yetiz-org/gone/ghttp/httpsession/redis"
 	kkdaemon "github.com/yetiz-org/goth-daemon"
 	datastore "github.com/yetiz-org/goth-kkdatastore"
 	kklogger "github.com/yetiz-org/goth-kklogger"

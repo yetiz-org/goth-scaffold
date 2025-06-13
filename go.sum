@@ -285,8 +285,8 @@ github.com/tdewolff/parse/v2 v2.4.2 h1:Bu2Qv6wepkc+Ou7iB/qHjAhEImlAP5vedzlQRUdj3
 github.com/tdewolff/parse/v2 v2.4.2/go.mod h1:WzaJpRSbwq++EIQHYIRTpbYKNA3gn9it1Ik++q4zyho=
 github.com/tdewolff/test v1.0.6 h1:76mzYJQ83Op284kMT+63iCNCI7NEERsIN8dLM+RiKr4=
 github.com/tdewolff/test v1.0.6/go.mod h1:6DAvZliBAAnD7rhVgwaM7DE5/d9NMOAJ09SqYqeK4QE=
-github.com/yetiz-org/gone v1.5.1 h1:uFO+OMw+eldUqunEKy+1UmjGX5W98YcMcZ3zrqHSY+8=
-github.com/yetiz-org/gone v1.5.1/go.mod h1:Dqi/Aj5ERdf3O0l005t02mNFiRjOCXKbJ2pgjWDVOfI=
+github.com/yetiz-org/gone v1.6.0 h1:OExM2cN4Rs3myUlE+/VYqYBY46EL7KxReMMmty3rzSs=
+github.com/yetiz-org/gone v1.6.0/go.mod h1:Dqi/Aj5ERdf3O0l005t02mNFiRjOCXKbJ2pgjWDVOfI=
 github.com/yetiz-org/goth-base62 v0.0.0-20250611115419-c6835bcfab05 h1:N/YloXHPh+HQP9qBsfzL6SCqsaGdD56VlEP8PMR21iw=
 github.com/yetiz-org/goth-base62 v0.0.0-20250611115419-c6835bcfab05/go.mod h1:ZQ2JR61ySTzysTsqCyxysxHj/VOaYQ3ZoI13kWr6+YU=
 github.com/yetiz-org/goth-bytebuf v0.0.0-20250611120548-fb5bbb6566e6 h1:ESgvL0t40aIjunL+xFXzh26p4P3unyPwGJzDs74s0nA=

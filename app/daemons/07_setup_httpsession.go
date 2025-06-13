@@ -2,10 +2,10 @@ package daemons
 
 import (
 	"fmt"
+	"github.com/yetiz-org/gone/ghttp"
+	"github.com/yetiz-org/gone/ghttp/httpsession/redis"
 	"strings"
 
-	"github.com/yetiz-org/gone/http"
-	"github.com/yetiz-org/gone/http/httpsession/redis"
 	kkdaemon "github.com/yetiz-org/goth-daemon"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
@@ -18,13 +18,13 @@ type SetupHttpSession struct {
 
 func (d *SetupHttpSession) Start() {
 	switch strings.ToUpper(conf.Config().Http.SessionType) {
-	case string(http.SessionTypeMemory):
-		http.DefaultSessionType = http.SessionTypeMemory
-	case string(http.SessionTypeRedis):
-		http.DefaultSessionType = http.SessionTypeRedis
+	case string(ghttp.SessionTypeMemory):
+		ghttp.DefaultSessionType = ghttp.SessionTypeMemory
+	case string(ghttp.SessionTypeRedis):
+		ghttp.DefaultSessionType = ghttp.SessionTypeRedis
 		redis.RedisSessionPrefix = fmt.Sprintf("%s:%s:hs", conf.Config().Http.SessionKey, conf.Config().App.Environment)
 	}
 
-	http.SessionKey = conf.Config().Http.SessionKey
-	http.SessionDomain = conf.Config().Http.SessionDomain.String()
+	ghttp.SessionKey = conf.Config().Http.SessionKey
+	ghttp.SessionDomain = conf.Config().Http.SessionDomain.String()
 }

@@ -2,8 +2,7 @@ package response
 
 import (
 	"github.com/yetiz-org/gone/erresponse"
-	"github.com/yetiz-org/gone/http/httpstatus"
-	"github.com/yetiz-org/goth-kkerror"
+	"github.com/yetiz-org/gone/ghttp/httpstatus"
 	kkerror "github.com/yetiz-org/goth-kkerror"
 )
 

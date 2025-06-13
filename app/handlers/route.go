@@ -1,22 +1,22 @@
 package handlers
 
 import (
-	"github.com/yetiz-org/gone/http"
+	"github.com/yetiz-org/gone/ghttp"
 	"github.com/yetiz-org/goth-scaffold/app/handlers/endpoints"
 )
 
 type Route struct {
-	http.DefaultRoute
+	ghttp.DefaultRoute
 }
 
 func NewRoute() *Route {
-	route := Route{DefaultRoute: *http.NewRoute()}
+	route := Route{DefaultRoute: *ghttp.NewRoute()}
 	route.
-		SetRoot(http.NewEndPoint("", endpoints.HandlerRoot, nil)).
-		AddRecursivePoint(http.NewEndPoint("r", endpoints.HandlerRoot, nil)).
-		AddRecursivePoint(http.NewEndPoint("static", http.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(http.NewEndPoint("favicon.ico", http.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(http.NewEndPoint("robots.txt", http.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(http.NewEndPoint("health", new(endpoints.HealthCheck), nil))
+		SetRoot(ghttp.NewEndPoint("", endpoints.HandlerRoot, nil)).
+		AddRecursivePoint(ghttp.NewEndPoint("r", endpoints.HandlerRoot, nil)).
+		AddRecursivePoint(ghttp.NewEndPoint("static", ghttp.NewStaticFilesHandlerTask(""), nil)).
+		AddEndPoint(ghttp.NewEndPoint("favicon.ico", ghttp.NewStaticFilesHandlerTask(""), nil)).
+		AddEndPoint(ghttp.NewEndPoint("robots.txt", ghttp.NewStaticFilesHandlerTask(""), nil)).
+		AddEndPoint(ghttp.NewEndPoint("health", new(endpoints.HealthCheck), nil))
 	return &route
 }
