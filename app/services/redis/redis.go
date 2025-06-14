@@ -1,14 +1,27 @@
 package redis
 
 import (
-	datastore "github.com/yetiz-org/goth-kkdatastore"
-	"github.com/yetiz-org/goth-scaffold/app/conf"
+	datastore "github.com/yetiz-org/goth-datastore"
+	"sync"
 )
 
-func Master() *datastore.KKRedisOp {
-	return datastore.KKREDIS(conf.Config().DataStore.RedisName).Master()
+var once sync.Once
+var redis *datastore.Redis
+
+func Init(profileName string) {
+	once.Do(func() {
+		redis = datastore.NewRedis(profileName)
+	})
 }
 
-func Slave() *datastore.KKRedisOp {
-	return datastore.KKREDIS(conf.Config().DataStore.RedisName).Slave()
+func Instance() *datastore.Redis {
+	return redis
+}
+
+func Master() *datastore.RedisOp {
+	return redis.Master()
+}
+
+func Slave() *datastore.RedisOp {
+	return redis.Slave()
 }

@@ -1,10 +1,11 @@
 package daemons
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
-	"github.com/yetiz-org/gone/ghttp/httpsession/redis"
+	redis "github.com/yetiz-org/gone-httpsession-redis"
 	kkdaemon "github.com/yetiz-org/goth-daemon"
-	datastore "github.com/yetiz-org/goth-kkdatastore"
+	datastore "github.com/yetiz-org/goth-datastore"
 	kklogger "github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
 	redis2 "github.com/yetiz-org/goth-scaffold/app/services/redis"
@@ -17,13 +18,14 @@ type SetupRedis struct {
 }
 
 func (d *SetupRedis) Start() {
-	redis.RedisName = conf.Config().DataStore.RedisName
-	datastore.KKRedisIdleTimeout = 60000
-	datastore.KKRedisMaxConnLifetime = 300000
-	datastore.KKRedisMaxIdle = 10
-	datastore.KKRedisMaxActive = 2000
-	datastore.KKRedisWait = true
+	redis.SessionPrefix = fmt.Sprintf("%s:%s", conf.Config().Http.SessionKey, conf.Config().App.Environment)
+	datastore.DefaultRedisIdleTimeout = 60000
+	datastore.DefaultRedisMaxConnLifetime = 300000
+	datastore.DefaultRedisMaxIdle = 10
+	datastore.DefaultRedisMaxActive = 2000
+	datastore.DefaultRedisWait = true
 
+	redis2.Init(conf.Config().DataStore.RedisName)
 	if redis2.Master() == nil {
 		panic(errors.Errorf("can't connect to master"))
 	}
@@ -32,13 +34,13 @@ func (d *SetupRedis) Start() {
 		panic(errors.Errorf("can't connect to slave"))
 	}
 
-	if r := redis2.Master().Keys("*"); r.Error != nil {
-		kklogger.ErrorJ("daemon.SetupRedis#Master", r.Error)
-		panic(r.Error)
+	if _, err := redis2.Master().Conn().Do("PING"); err != nil {
+		kklogger.ErrorJ("daemon.SetupRedis#Master", err)
+		panic(err)
 	}
 
-	if r := redis2.Slave().Keys("*"); r.Error != nil {
-		kklogger.ErrorJ("daemon.SetupRedis#Slave", r.Error)
-		panic(r.Error)
+	if _, err := redis2.Slave().Conn().Do("PING"); err != nil {
+		kklogger.ErrorJ("daemon.SetupRedis#Slave", err)
+		panic(err)
 	}
 }

@@ -2,18 +2,18 @@ package endpoints
 
 import (
 	"fmt"
+	redis2 "github.com/yetiz-org/goth-scaffold/app/services/redis"
+	"gorm.io/gorm"
 	"mime"
 	"strings"
 	"time"
 
-	"github.com/gomodule/redigo/redis"
-	"github.com/jinzhu/gorm"
 	"github.com/yetiz-org/gone/channel"
 	"github.com/yetiz-org/gone/ghttp"
 	"github.com/yetiz-org/gone/ghttp/httpheadername"
 	"github.com/yetiz-org/gone/ghttp/httpstatus"
 	buf "github.com/yetiz-org/goth-bytebuf"
-	"github.com/yetiz-org/goth-kkdatastore"
+	"github.com/yetiz-org/goth-datastore"
 	"github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-kktemplate"
 	"github.com/yetiz-org/goth-kktranslation"
@@ -111,19 +111,19 @@ func (h *HandlerTask) RenderHtml(templateName string, config *RenderConfig, resp
 }
 
 func (h *HandlerTask) ReaderDB() *gorm.DB {
-	return datastore.KKDB(conf.Config().DataStore.DatabaseName).Reader().DB()
+	return datastore.NewDatabase(conf.Config().DataStore.DatabaseName).Reader().DB()
 }
 
 func (h *HandlerTask) WriterDB() *gorm.DB {
-	return datastore.KKDB(conf.Config().DataStore.DatabaseName).Writer().DB()
+	return datastore.NewDatabase(conf.Config().DataStore.DatabaseName).Writer().DB()
 }
 
-func (h *HandlerTask) RedisWDB() redis.Conn {
-	return datastore.KKREDIS(conf.Config().DataStore.RedisName).Master().Conn()
+func (h *HandlerTask) RedisWDB() *datastore.RedisOp {
+	return redis2.Master()
 }
 
-func (h *HandlerTask) RedisRDB() redis.Conn {
-	return datastore.KKREDIS(conf.Config().DataStore.RedisName).Slave().Conn()
+func (h *HandlerTask) RedisRDB() *datastore.RedisOp {
+	return redis2.Slave()
 }
 
 func (h *HandlerTask) T(message string, lang string) string {

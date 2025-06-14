@@ -3,7 +3,7 @@ package daemons
 import (
 	"github.com/pkg/errors"
 	kkdaemon "github.com/yetiz-org/goth-daemon"
-	datastore "github.com/yetiz-org/goth-kkdatastore"
+	datastore "github.com/yetiz-org/goth-datastore"
 	kklogger "github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-scaffold/app/services/db"
 )
@@ -15,13 +15,12 @@ type SetupDatabase struct {
 }
 
 func (d *SetupDatabase) Start() {
-	datastore.KKDBParamDialTimeout = "3s"
-	datastore.KKDBParamReaderMaxOpenConn = 2
-	datastore.KKDBParamReaderMaxIdleConn = 1
-	datastore.KKDBParamWriterMaxOpenConn = 2
-	datastore.KKDBParamWriterMaxIdleConn = 1
-	datastore.KKDBParamConnMaxLifetime = 60000
-
+	datastore.DefaultDatabaseDialTimeout = "3s"
+	datastore.DefaultDatabaseMaxOpenConn = 2
+	datastore.DefaultDatabaseMaxIdleConn = 1
+	datastore.DefaultDatabaseMaxOpenConn = 2
+	datastore.DefaultDatabaseMaxIdleConn = 1
+	datastore.DefaultDatabaseConnMaxLifetime = 60000
 	if db.Writer() == nil {
 		panic(errors.Errorf("can't connect to writer"))
 	}
