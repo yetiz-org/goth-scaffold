@@ -8,10 +8,10 @@ require (
 	cloud.google.com/go/profiler v0.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/yetiz-org/gone v1.6.3
-	github.com/yetiz-org/gone-httpsession-redis v1.0.3
+	github.com/yetiz-org/gone-httpsession-redis v1.0.7
 	github.com/yetiz-org/goth-bytebuf v0.0.0-20250611120548-fb5bbb6566e6
 	github.com/yetiz-org/goth-daemon v1.6.0
-	github.com/yetiz-org/goth-datastore v1.1.1
+	github.com/yetiz-org/goth-datastore v1.1.5
 	github.com/yetiz-org/goth-kkerror v0.0.0-20250611121220-43dff8e5308a
 	github.com/yetiz-org/goth-kklogger v0.0.0-20250611122328-03d2bbd5bc69
 	github.com/yetiz-org/goth-kksecret v0.0.0-20250611122445-b18924e3664a
@@ -49,7 +49,7 @@ require (
 	github.com/tdewolff/parse/v2 v2.8.1 // indirect
 	github.com/yetiz-org/goth-base62 v0.0.0-20250611115419-c6835bcfab05 // indirect
 	github.com/yetiz-org/goth-concurrent v0.0.0-20250611125808-2e2772935d6c // indirect
-	github.com/yetiz-org/goth-secret v1.1.2 // indirect
+	github.com/yetiz-org/goth-secret v1.1.4 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
