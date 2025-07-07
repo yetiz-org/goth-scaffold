@@ -1,5 +1,7 @@
 {{define "content"}}
-{{T "home" }} EN
+{{T "home"}} EN
+{{ .PageData.SHOW }}
+{{ .Session.SSS }}
 {{ .Page_ID }}
 {{ .RequestUri }}
 {{end}}

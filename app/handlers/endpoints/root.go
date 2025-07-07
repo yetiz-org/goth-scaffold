@@ -12,7 +12,7 @@ type Root struct {
 var HandlerRoot = &Root{}
 
 func (l *Root) Get(ctx channel.HandlerContext, req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
-	l.SessionRenderData(resp, "SSS", "S1")
+	req.Session().PutString("SSS", "SessionSSS")
 	l.RenderHtml("home", &RenderConfig{
 		PageTitle:      "the root title",
 		PageRenderData: map[string]interface{}{"SHOW": "SHOW~~"},

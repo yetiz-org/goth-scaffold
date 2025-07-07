@@ -18,7 +18,6 @@ import (
 	"github.com/yetiz-org/goth-kktemplate"
 	"github.com/yetiz-org/goth-kktranslation"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
-	"github.com/yetiz-org/goth-scaffold/app/constant/page"
 	"github.com/yetiz-org/goth-scaffold/app/constant/param"
 	"github.com/yetiz-org/goth-scaffold/app/constant/query"
 )
@@ -207,32 +206,8 @@ func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ght
 	}
 
 	if session := resp.Request().Session(); session != nil {
-		m := map[string]interface{}{}
-		session.GetStruct(page.RenderData, &m)
-		if len(m) > 0 {
-			for k, v := range m {
-				if s, ok := v.(string); ok {
-					m[k] = h.T(s, h.Lang(resp.Request()))
-				} else {
-					m[k] = v
-				}
-			}
-
-			renderVars["SessionData"] = m
-		}
-
-		session.Delete(page.RenderData)
+		renderVars["Session"] = resp.Request().Session().Data()
 	}
 
 	return renderVars
-}
-
-func (h *HandlerTask) SessionRenderData(resp *ghttp.Response, key string, value interface{}) {
-	if resp != nil {
-		session := resp.Request().Session()
-		m := map[string]interface{}{}
-		session.GetStruct(page.RenderData, &m)
-		m[key] = value
-		session.PutStruct(page.RenderData, m)
-	}
 }
