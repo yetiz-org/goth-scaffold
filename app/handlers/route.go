@@ -1,22 +1,33 @@
-package handlers
+package handler
 
 import (
 	"github.com/yetiz-org/gone/ghttp"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 	"github.com/yetiz-org/goth-scaffold/app/handlers/endpoints"
+	v1 "github.com/yetiz-org/goth-scaffold/app/handlers/endpoints/v1"
+	"github.com/yetiz-org/goth-scaffold/app/handlers/minortasks"
 )
 
 type Route struct {
-	ghttp.DefaultRoute
+	ghttp.SimpleRoute
 }
 
-func NewRoute() *Route {
-	route := Route{DefaultRoute: *ghttp.NewRoute()}
-	route.
-		SetRoot(ghttp.NewEndPoint("", endpoints.HandlerRoot, nil)).
-		AddRecursivePoint(ghttp.NewEndPoint("r", endpoints.HandlerRoot, nil)).
-		AddRecursivePoint(ghttp.NewEndPoint("static", ghttp.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(ghttp.NewEndPoint("favicon.ico", ghttp.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(ghttp.NewEndPoint("robots.txt", ghttp.NewStaticFilesHandlerTask(""), nil)).
-		AddEndPoint(ghttp.NewEndPoint("health", new(endpoints.HealthCheck), nil))
+func NewAppRoute() *Route {
+	route := Route{SimpleRoute: *ghttp.NewSimpleRoute()}
+	route.SetRoot(endpoints.HandlerRoot)
+	static := ghttp.NewStaticFilesHandlerTask("")
+	if conf.IsDebug() {
+		static.DoMinify = false
+		static.DoCache = false
+	}
+
+	route.SetEndpoint("/static/*", static)
+	route.SetEndpoint("/favicon.ico", static)
+	route.SetEndpoint("/robots.txt", static)
+
+	// API
+	route.SetGroup("/api", minortasks.TaskDecodeSiteToken)
+	route.SetGroup("/api/v1")
+	route.SetEndpoint("/api/v1/health", v1.HandlerHealth)
 	return &route
 }

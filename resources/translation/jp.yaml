@@ -1,0 +1,6 @@
+version: 0.0.2
+lang: "jp"
+name: "日本語"
+dict:
+  home: ホーム
+  error_404_title: ページが見つかりません

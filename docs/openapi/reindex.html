@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goth Scaffold API Documentation - Redoc</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        #api-selector-container {
+            background-color: #263238;
+            padding: 15px 20px;
+            border-bottom: 1px solid #37474f;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #api-selector-container label {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        #api-selector {
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #37474f;
+            border-radius: 4px;
+            background-color: #37474f;
+            color: #fff;
+            cursor: pointer;
+            min-width: 200px;
+        }
+
+        #api-selector:hover {
+            border-color: #50fa7b;
+            background-color: #455a64;
+        }
+
+        #api-selector option {
+            background-color: #37474f;
+            color: #fff;
+        }
+
+        #loading {
+            display: none;
+            color: #fff;
+            margin-left: 15px;
+            font-size: 14px;
+        }
+
+        #redoc-container {
+            height: calc(100vh - 60px);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.6s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="api-selector-container">
+        <label for="api-selector">Select API Specification:</label>
+        <select id="api-selector">
+            <option value="openapi.yaml">API Documentation</option>
+        </select>
+        <span id="loading">Loading<span class="loading-spinner"></span></span>
+    </div>
+    <div id="redoc-container"></div>
+
+    <script src="https://unpkg.com/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+    <script>
+        // Load and parse YAML file
+        async function loadYaml(filename) {
+            const response = await fetch(filename);
+            const text = await response.text();
+            return jsyaml.load(text);
+        }
+
+        // Initialize Redoc with spec object
+        function initRedoc(spec) {
+            const container = document.getElementById('redoc-container');
+
+            // Clear previous instance
+            container.innerHTML = '';
+
+            // Initialize Redoc
+            Redoc.init(
+                spec,
+                {
+                    scrollYOffset: 60,
+                    hideDownloadButton: false,
+                    disableSearch: false,
+                    expandResponses: "200,201",
+                    jsonSampleExpandLevel: 2,
+                    hideSingleRequestSampleTab: false,
+                    menuToggle: true,
+                    nativeScrollbars: false,
+                    pathInMiddlePanel: false,
+                    theme: {
+                        colors: {
+                            primary: {
+                                main: '#50fa7b'
+                            }
+                        },
+                        typography: {
+                            fontSize: '14px',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            headings: {
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                fontWeight: '600'
+                            }
+                        },
+                        sidebar: {
+                            backgroundColor: '#fafafa',
+                            textColor: '#333'
+                        }
+                    }
+                },
+                container
+            );
+        }
+
+        // Load and display spec
+        async function loadSpec(filename) {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'inline';
+
+            try {
+                const spec = await loadYaml(filename);
+                initRedoc(spec);
+            } catch (error) {
+                console.error('Error loading spec:', error);
+                alert('Failed to load API specification: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Get the selector element
+        const selector = document.getElementById('api-selector');
+
+        // Restore previously selected spec from localStorage (only if valid)
+        const savedSpec = localStorage.getItem('selectedApiSpecRedoc');
+        if (savedSpec && Array.from(selector.options).some(opt => opt.value === savedSpec)) {
+            selector.value = savedSpec;
+        } else {
+            // Clear invalid saved spec
+            localStorage.removeItem('selectedApiSpecRedoc');
+        }
+
+        // Load the selected spec on page load
+        loadSpec(selector.value);
+
+        // Handle spec change
+        selector.addEventListener('change', function () {
+            // Save selection to localStorage
+            localStorage.setItem('selectedApiSpecRedoc', this.value);
+            loadSpec(this.value);
+        });
+    </script>
+</body>
+
+</html>

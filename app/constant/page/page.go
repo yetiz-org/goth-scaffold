@@ -1,6 +1,8 @@
 package page
 
 const (
-	RenderData = "PAGE_RENDER_DATA"
-	Javascript = "PAGE_JAVASCRIPT"
+	Javascript     = "PAGE_JAVASCRIPT"
+	CsrfToken      = "PAGE_CSRF_TOKEN"
+	ErrorMessage   = "PAGE_ERROR_MESSAGE"
+	SuccessMessage = "PAGE_SUCCESS_MESSAGE"
 )

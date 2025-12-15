@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goth Scaffold API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .card p {
+            color: #666;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .staging-card .card-icon {
+            color: #f59e0b;
+        }
+        .production-card .card-icon {
+            color: #10b981;
+        }
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            .header p {
+                font-size: 1rem;
+            }
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🛠️ Goth Scaffold API</h1>
+        <p>Select an environment to view API documentation</p>
+    </div>
+    <div class="cards">
+        <a href="staging/index.html" class="card staging-card">
+            <div class="card-icon">🔧</div>
+            <h2>Staging - Swagger UI</h2>
+            <p>Development and testing environment with interactive API explorer</p>
+        </a>
+        <a href="staging/reindex.html" class="card staging-card">
+            <div class="card-icon">📖</div>
+            <h2>Staging - Redoc</h2>
+            <p>Development environment with clean documentation viewer</p>
+        </a>
+        <a href="production/index.html" class="card production-card">
+            <div class="card-icon">🚀</div>
+            <h2>Production - Swagger UI</h2>
+            <p>Live production environment with interactive API explorer</p>
+        </a>
+        <a href="production/reindex.html" class="card production-card">
+            <div class="card-icon">📚</div>
+            <h2>Production - Redoc</h2>
+            <p>Production environment with clean documentation viewer</p>
+        </a>
+    </div>
+</div>
+</body>
+</html>

@@ -3,27 +3,29 @@ package app
 import (
 	"flag"
 	"fmt"
-	kkdaemon "github.com/yetiz-org/goth-daemon"
 	"os"
 
-	kkpanic "github.com/yetiz-org/goth-panic"
 	"github.com/yetiz-org/goth-scaffold/app/build_info"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
 	"github.com/yetiz-org/goth-scaffold/app/daemons"
+
+	kkpanic "github.com/yetiz-org/goth-panic"
 )
 
 var (
 	help       bool
 	configPath string
+	mode       string
 )
 
 func Initialize() {
 	FlagParse()
-	_RegisterDaemonService()
+	kkpanic.PanicNonNil(daemons.LoadActiveService())
 }
 
 func FlagParse() {
 	flag.StringVar(&configPath, "c", "config.yaml", "config file")
+	flag.StringVar(&mode, "m", "default", "mode: default, api, worker, db_seed, db_migration")
 	flag.BoolVar(&help, "h", false, "help")
 	flag.Parse()
 
@@ -42,18 +44,7 @@ func FlagParse() {
 	}
 
 	conf.ConfigPath = configPath
-}
-
-func _RegisterDaemonService() {
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupEnvironment))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupLogger))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupStdoutCatch))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupProfiler))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupDatabase))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupRedis))
-	//kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupHttpSession))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonTimerLoopExample))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSchedulerLoopExample))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupUpDown))
-	kkpanic.PanicNonNil(kkdaemon.RegisterDaemon(daemons.DaemonSetupLaunchService))
+	if os.Getenv("APP_MODE") == "" && mode != "" {
+		os.Setenv("APP_MODE", mode)
+	}
 }

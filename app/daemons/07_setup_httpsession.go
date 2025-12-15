@@ -1,17 +1,17 @@
 package daemons
 
 import (
+	"fmt"
+	"strings"
+
 	redis "github.com/yetiz-org/gone-httpsession-redis"
 	"github.com/yetiz-org/gone/ghttp"
 	"github.com/yetiz-org/gone/ghttp/httpsession/memory"
-	redis2 "github.com/yetiz-org/goth-scaffold/app/services/redis"
-	"strings"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
+	redis2 "github.com/yetiz-org/goth-scaffold/app/connector/redis"
 
 	kkdaemon "github.com/yetiz-org/goth-daemon"
-	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
-
-var DaemonSetupHttpSession = &SetupHttpSession{}
 
 type SetupHttpSession struct {
 	kkdaemon.DefaultDaemon
@@ -26,6 +26,11 @@ func (d *SetupHttpSession) Start() {
 		ghttp.RegisterSessionProvider(redis.NewSessionProviderWithRedis(redis2.Instance()))
 	}
 
-	ghttp.SessionKey = conf.Config().Http.SessionKey
+	redis.SessionPrefix = fmt.Sprintf("%s-%s-%s",
+		conf.Config().App.Environment.Lower(),
+		conf.Config().App.Channel.Lower(),
+		conf.Config().App.Name.Lower())
+	ghttp.SessionKey = conf.Config().App.Environment.String()
 	ghttp.SessionDomain = conf.Config().Http.SessionDomain.String()
+	ghttp.SessionExpireTime = conf.Config().Http.SessionExpireTime
 }

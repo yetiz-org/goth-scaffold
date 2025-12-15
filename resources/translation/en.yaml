@@ -1,0 +1,6 @@
+version: 0.0.2
+lang: "en"
+name: "English"
+dict:
+  home: Home
+  error_404_title: Page Not Found

@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: Goth Scaffold API
+  description: Goth Scaffold API Documentation
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Public
+    description: Public endpoints
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+      required:
+        - error
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+paths:
+  /api/v1/health:
+    get:
+      tags:
+        - Public
+      summary: Health check
+      description: Returns service health status
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'

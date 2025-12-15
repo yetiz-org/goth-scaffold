@@ -1,15 +1,15 @@
 package main
 
 import (
-	kkdaemon "github.com/yetiz-org/goth-daemon"
 	"github.com/yetiz-org/goth-scaffold/app"
+	"github.com/yetiz-org/goth-scaffold/app/daemons"
 )
 
 func main() {
 	app.Initialize()
-	if kkdaemon.Start() != nil {
-		kkdaemon.ShutdownGracefully()
+	if daemons.ActiveService.Start() != nil {
+		daemons.ActiveService.ShutdownGracefully()
 	}
 
-	kkdaemon.ShutdownFuture().Await()
+	daemons.ActiveService.ShutdownFuture().Await()
 }

@@ -1,5 +1,8 @@
 package param
 
+import "github.com/yetiz-org/gone/channel"
+
 const (
-	Lang = "LANG"
+	AccessToken       channel.ParamKey = "PARAMS_ACCESS_TOKEN"
+	AccessTokenString channel.ParamKey = "PARAMS_ACCESS_TOKEN_STRING"
 )

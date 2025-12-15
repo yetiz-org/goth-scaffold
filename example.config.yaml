@@ -1,0 +1,39 @@
+datastore:
+  secret_path: "/secret/"
+  database_name: ""
+  cassandra_name: ""
+  redis_name: ""
+app:
+  name: "goth-scaffold"
+  domain_name: "localhost"
+  port: 8080
+  environment: "staging"
+credentials:
+  secret_slack:
+    webhook: ""
+  recaptcha:
+    site_key: ""
+    secret_key: ""
+  gtm_id: ""
+http:
+  scheme: "http"
+  session_type: "MEMORY"
+  session_key: "scaffold"
+  session_domain: "localhost"
+  session_expire_time: 3600
+lang:
+  default: "zh-tw"
+logger:
+  logger_path: "alloc/logs/"
+  log_level: "debug"
+  stdio_capture: false
+  gcp_logging:
+    enable: false
+    json_credential_body: ""
+profiler:
+  enable: false
+  mutex_profiling: true
+  no_alloc_profiling: false
+  no_heap_profiling: false
+  no_goroutine_profiling: false
+  json_credential_body: ""

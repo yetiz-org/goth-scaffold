@@ -1,1 +1,2 @@
-# go-scaffold.kklab.com
+User-agent: *
+Disallow: /

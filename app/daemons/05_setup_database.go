@@ -5,37 +5,35 @@ import (
 	kkdaemon "github.com/yetiz-org/goth-daemon"
 	datastore "github.com/yetiz-org/goth-datastore"
 	kklogger "github.com/yetiz-org/goth-kklogger"
-	"github.com/yetiz-org/goth-scaffold/app/services/db"
+	"github.com/yetiz-org/goth-scaffold/app/connector/database"
 )
-
-var DaemonSetupDatabase = &SetupDatabase{}
 
 type SetupDatabase struct {
 	kkdaemon.DefaultDaemon
 }
 
 func (d *SetupDatabase) Start() {
+	if !database.Enabled() {
+		return
+	}
+
 	datastore.DefaultDatabaseDialTimeout = "3s"
-	datastore.DefaultDatabaseMaxOpenConn = 2
-	datastore.DefaultDatabaseMaxIdleConn = 1
-	datastore.DefaultDatabaseMaxOpenConn = 2
-	datastore.DefaultDatabaseMaxIdleConn = 1
+	datastore.DefaultDatabaseMaxOpenConn = 10
+	datastore.DefaultDatabaseMaxIdleConn = 2
+	datastore.DefaultDatabaseMaxOpenConn = 10
+	datastore.DefaultDatabaseMaxIdleConn = 2
 	datastore.DefaultDatabaseConnMaxLifetime = 60000
-	if db.Writer() == nil {
-		panic(errors.Errorf("can't connect to writer"))
+
+	if database.Writer() == nil {
+		panic(errors.Errorf("can't connect to writer db"))
 	}
 
-	if db.Reader() == nil {
-		panic(errors.Errorf("can't connect to reader"))
+	if database.Reader() == nil {
+		panic(errors.Errorf("can't connect to reader db"))
 	}
 
-	if err := db.Writer().Exec("select table_name from information_schema.tables limit 1").Error; err != nil {
-		kklogger.ErrorJ("daemon.SetupDatabase#Writer", err)
-		panic(err)
-	}
-
-	if err := db.Reader().Exec("select table_name from information_schema.tables limit 1").Error; err != nil {
-		kklogger.ErrorJ("daemon.SetupDatabase#Reader", err)
+	if err := database.HealthCheck(); err != nil {
+		kklogger.ErrorJ("daemons:SetupDatabase.Start#health_check!database", err)
 		panic(err)
 	}
 }

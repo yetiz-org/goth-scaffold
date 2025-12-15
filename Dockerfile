@@ -1,20 +1,21 @@
 FROM debian:stable-slim
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates dumb-init \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install CA certificate for Cassandra SSL connection
+# debian already has ca-certificates
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-ADD go-scaffold /
-ADD config.yaml /
-ADD resources /resources
-ADD launcher /
-ADD exec /exec
-# For GCP Profiler
-ENV GOOGLE_APPLICATION_CREDENTIALS=/gcp_profiler_credential.json
-ENV GOGC=100
+ADD launcher /srv/scaffold/
+ADD exec /srv/scaffold/exec
+ADD resources /srv/scaffold/resources
+ADD app/database/migrate /srv/scaffold/app/database/migrate
+ADD app/database/seed /srv/scaffold/resources/seed
+
+WORKDIR /srv/scaffold
 
 EXPOSE 8080
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/launcher", "-c", "/config.yaml"]
+CMD ["/srv/scaffold/launcher", "-c", "config.yaml"]

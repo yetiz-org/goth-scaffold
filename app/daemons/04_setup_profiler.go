@@ -2,23 +2,22 @@ package daemons
 
 import (
 	"fmt"
-	kkdaemon "github.com/yetiz-org/goth-daemon"
-	kklogger "github.com/yetiz-org/goth-kklogger"
 
 	"cloud.google.com/go/profiler"
+	kkdaemon "github.com/yetiz-org/goth-daemon"
+	kklogger "github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-scaffold/app/build_info"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
+	"google.golang.org/api/option"
 )
-
-var DaemonSetupProfiler = &SetupProfiler{}
 
 type SetupProfiler struct {
 	kkdaemon.DefaultDaemon
 }
 
 func (d *SetupProfiler) Start() {
-	if conf.Config().Profiler.Enable {
-		設定檔 := profiler.Config{
+	if conf.Config().Profiler.Enable && conf.Config().Profiler.JSONCredentialBody != "" {
+		config := profiler.Config{
 			Service:              conf.Config().App.Name.Lower(),
 			ServiceVersion:       fmt.Sprintf("%s(%s-%s)", conf.Config().App.Environment, build_info.BuildGitVersion[:8], build_info.BuildTimestamp),
 			MutexProfiling:       conf.Config().Profiler.MutexProfiling,
@@ -28,9 +27,9 @@ func (d *SetupProfiler) Start() {
 			ProjectID:            conf.Config().Profiler.ProjectID,
 		}
 
-		if 錯誤 := profiler.Start(設定檔); 錯誤 != nil {
-			kklogger.ErrorJ("SetupProfiler", map[string]interface{}{"status": "fail", "error": 錯誤.Error(), "config": 設定檔})
-			panic(錯誤)
+		if err := profiler.Start(config, option.WithCredentialsJSON([]byte(conf.Config().Profiler.JSONCredentialBody))); err != nil {
+			kklogger.ErrorJ("daemons:SetupProfiler.Start#profiler", map[string]interface{}{"status": "fail", "error": err.Error(), "config": config})
+			panic(err)
 		}
 	}
 }

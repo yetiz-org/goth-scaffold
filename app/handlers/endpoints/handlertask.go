@@ -1,9 +1,8 @@
 package endpoints
 
 import (
+	"encoding/json"
 	"fmt"
-	redis2 "github.com/yetiz-org/goth-scaffold/app/services/redis"
-	"gorm.io/gorm"
 	"mime"
 	"strings"
 	"time"
@@ -13,17 +12,21 @@ import (
 	"github.com/yetiz-org/gone/ghttp/httpheadername"
 	"github.com/yetiz-org/gone/ghttp/httpstatus"
 	buf "github.com/yetiz-org/goth-bytebuf"
-	"github.com/yetiz-org/goth-datastore"
-	"github.com/yetiz-org/goth-kklogger"
-	"github.com/yetiz-org/goth-kktemplate"
-	"github.com/yetiz-org/goth-kktranslation"
+	kklogger "github.com/yetiz-org/goth-kklogger"
+	kktemplate "github.com/yetiz-org/goth-kktemplate"
+	kktranslation "github.com/yetiz-org/goth-kktranslation"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
-	"github.com/yetiz-org/goth-scaffold/app/constant/param"
+	"github.com/yetiz-org/goth-scaffold/app/constant/page"
 	"github.com/yetiz-org/goth-scaffold/app/constant/query"
+	"github.com/yetiz-org/goth-util/hash"
 )
 
 type HandlerTask struct {
 	ghttp.DefaultHTTPHandlerTask
+}
+
+func (h *HandlerTask) Super() ghttp.HttpHandlerTask {
+	return &h.DefaultHTTPHandlerTask
 }
 
 func (h *HandlerTask) PreCheck(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}) ghttp.ErrorResponse {
@@ -82,12 +85,54 @@ func (h *HandlerTask) After(req *ghttp.Request, resp *ghttp.Response, params map
 }
 
 func (h *HandlerTask) ErrorCaught(req *ghttp.Request, resp *ghttp.Response, params map[string]interface{}, err ghttp.ErrorResponse) error {
-	resp.ResponseError(err)
+	m := map[string]any{}
+	if jErr := json.Unmarshal([]byte(err.Message()), &m); jErr == nil {
+		err.ErrorData()[".message"] = m
+	}
+
+	if resp.StatusCode() == 0 {
+		resp.ResponseError(err)
+	}
+
 	return nil
+}
+
+func (h *HandlerTask) GetNode(params map[string]any) ghttp.RouteNode {
+	if rtn := params["[gone-http]node"]; rtn != nil {
+		return rtn.(ghttp.RouteNode)
+	}
+
+	return nil
+}
+
+func (h *HandlerTask) GetNodeId(params map[string]any) string {
+	return h.GetID(h.GetNodeName(params), params)
+}
+
+func (h *HandlerTask) Host(req *ghttp.Request) string {
+	if host := req.Host(); host != "" {
+		return host
+	} else {
+		return conf.Config().App.DomainName.String()
+	}
 }
 
 func (h *HandlerTask) ResponseError(er ghttp.ErrorResponse, resp *ghttp.Response) {
 	resp.ResponseError(er)
+}
+
+func (h *HandlerTask) GenerateCSRFToken(data []byte, expiresIn time.Duration) (csrfToken string) {
+	csrfToken = hash.CryptoTimeHash(data, time.Now().Add(expiresIn).Unix(), []byte("csrf"))
+	return
+}
+
+func (h *HandlerTask) ValidateCSRFToken(csrfToken string) (data []byte, valid bool) {
+	if !hash.ValidateTimeHash(csrfToken) || hash.TimestampOfTimeHash(csrfToken) < time.Now().Unix() {
+		return nil, false
+	}
+
+	data = hash.DataOfCryptoTimeHash(csrfToken, []byte("csrf"))
+	return data, true
 }
 
 func (h *HandlerTask) Redirect(redirectUrl string, resp *ghttp.Response) {
@@ -99,30 +144,14 @@ func (h *HandlerTask) RenderHtml(templateName string, config *RenderConfig, resp
 		buffer := buf.EmptyByteBuf()
 		renderVars := h._RenderVars(templateName, config, resp)
 		if e := tmpl.ExecuteTemplate(buffer, "main", renderVars); e != nil {
-			kklogger.ErrorJ("HandlerTask.RenderHtml", fmt.Sprintf("ExecuteTemplate Fail, Err: %s", e.Error()))
+			kklogger.ErrorJ("endpoints:HandlerTask.RenderHtml#template!execute_fail", fmt.Sprintf("ExecuteTemplate Fail, Err: %s", e.Error()))
 		}
 
 		resp.SetHeader(httpheadername.ContentType, mime.TypeByExtension(".html"))
 		resp.SetBody(buffer)
 	} else {
-		kklogger.ErrorJ("HandlerTask.RenderHtml", err.Error())
+		kklogger.ErrorJ("endpoints:HandlerTask.RenderHtml#template!load_fail", err.Error())
 	}
-}
-
-func (h *HandlerTask) ReaderDB() *gorm.DB {
-	return datastore.NewDatabase(conf.Config().DataStore.DatabaseName).Reader().DB()
-}
-
-func (h *HandlerTask) WriterDB() *gorm.DB {
-	return datastore.NewDatabase(conf.Config().DataStore.DatabaseName).Writer().DB()
-}
-
-func (h *HandlerTask) RedisWDB() *datastore.RedisOp {
-	return redis2.Master()
-}
-
-func (h *HandlerTask) RedisRDB() *datastore.RedisOp {
-	return redis2.Slave()
 }
 
 func (h *HandlerTask) T(message string, lang string) string {
@@ -133,12 +162,12 @@ func (h *HandlerTask) Lang(req *ghttp.Request) string {
 	lang := strings.ToLower(req.FormValue(query.Lang))
 
 	if lang == "" {
-		if sessionLang := req.Session().GetString(param.Lang); sessionLang != "" {
+		if sessionLang := req.Session().GetString(query.Lang); sessionLang != "" {
 			return sessionLang
 		}
 	} else {
 		if kktranslation.GetLangFile(lang) != nil {
-			req.Session().PutString(param.Lang, lang)
+			req.Session().PutString(query.Lang, lang)
 			return lang
 		}
 	}
@@ -146,13 +175,13 @@ func (h *HandlerTask) Lang(req *ghttp.Request) string {
 	for _, qv := range req.AcceptLanguage() {
 		lang = strings.ToLower(qv.Value.String())
 		if kktranslation.GetLangFile(lang) != nil {
-			req.Session().PutString(param.Lang, lang)
+			req.Session().PutString(query.Lang, lang)
 			return lang
 		}
 	}
 
 	lang = strings.ToLower(conf.Config().Lang.Default)
-	req.Session().PutString(param.Lang, lang)
+	req.Session().PutString(query.Lang, lang)
 
 	return lang
 }
@@ -164,6 +193,14 @@ type RenderConfig struct {
 	PageRenderData   map[string]interface{}
 }
 
+func (h *HandlerTask) SetPageErrorMessage(message string, resp *ghttp.Response) {
+	resp.Request().Session().PutString(page.ErrorMessage, message)
+}
+
+func (h *HandlerTask) SetPageSuccessMessage(message string, resp *ghttp.Response) {
+	resp.Request().Session().PutString(page.SuccessMessage, message)
+}
+
 func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ghttp.Response) map[string]interface{} {
 	if config == nil {
 		config = &RenderConfig{}
@@ -172,9 +209,9 @@ func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ght
 	lang := h.Lang(resp.Request())
 	redirect := resp.Request().FormValue(query.Redirect)
 	renderVars := map[string]interface{}{}
-	renderVars["Time_Now"] = time.Now()
-	renderVars["Page_ID"] = pageID
-	renderVars["Page_Title"] = h.T(config.PageTitle, h.Lang(resp.Request()))
+	renderVars["TimeNow"] = time.Now()
+	renderVars["PageID"] = pageID
+	renderVars["PageTitle"] = h.T(config.PageTitle, h.Lang(resp.Request()))
 	renderVars["RequestPath"] = resp.Request().Url().Path
 	renderVars["RequestUri"] = resp.Request().RequestURI()
 	renderVars["Lang"] = lang
@@ -184,13 +221,19 @@ func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ght
 		renderVars["LangName"] = kktranslation.GetLangFile(conf.Config().Lang.Default).Name
 	}
 
+	renderVars["GTMId"] = conf.Config().Credentials.GTMId
 	renderVars["LangFiles"] = kktranslation.LangFiles()
 	remoteIp, remotePort := resp.Request().RemoteAddr()
 	renderVars["RemoteIP"] = remoteIp
 	renderVars["RemotePort"] = remotePort
 	renderVars["Redirect"] = redirect
-	renderVars["Javascript_Header"] = config.JavascriptHeader
-	renderVars["Javascript_Footer"] = config.JavascriptFooter
+	renderVars["JavascriptHeader"] = config.JavascriptHeader
+	renderVars["JavascriptFooter"] = config.JavascriptFooter
+	renderVars["Environment"] = conf.Config().App.Environment.Upper()
+	renderVars["IsDebug"] = conf.IsDebug()
+	renderVars["IsProduction"] = conf.IsProduction()
+	renderVars["IsStaging"] = conf.IsStaging()
+	renderVars["IsLocal"] = conf.IsLocal()
 
 	if config.PageRenderData != nil {
 		m := map[string]interface{}{}
@@ -206,7 +249,17 @@ func (h *HandlerTask) _RenderVars(pageID string, config *RenderConfig, resp *ght
 	}
 
 	if session := resp.Request().Session(); session != nil {
-		renderVars["Session"] = resp.Request().Session().Data()
+		renderVars["Session"] = session.Data()
+	}
+
+	if resp.Request().Session().GetString(page.ErrorMessage) != "" {
+		renderVars["ErrorMessage"] = resp.Request().Session().GetString(page.ErrorMessage)
+		resp.Request().Session().Delete(page.ErrorMessage)
+	}
+
+	if resp.Request().Session().GetString(page.SuccessMessage) != "" {
+		renderVars["SuccessMessage"] = resp.Request().Session().GetString(page.SuccessMessage)
+		resp.Request().Session().Delete(page.SuccessMessage)
 	}
 
 	return renderVars

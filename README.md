@@ -47,30 +47,32 @@ GOOS=linux GOARCH=arm64 go build
 ```
 /app
   /build_info              - build info pass in by build script (.gitlab-ci.yml)
+  /components              - common libs, for service without any git repo
   /conf                    - configuration file struct folder
-    configuration.go       - service configuration file parse struct
+  /connector               - external service connectors
+    /database              - database connector
+    /keyspaces             - cassandra keyspaces connector
+    /redis                 - redis connector
   /constant                - constant value
   /daemons                 - daemon process with order
+  /database                - database definition
+    /migrate               - database migration files
+    /seed                  - database seed files
   /errors                  - error struct
-    /response              - error response
   /handlers                - http handler
     /acceptances           - handler acceptance
     /endpoints             - endpoints
-      kkhandlertask.go     - default handlertask with some page render func
     /minortasks            - minortask
-    initializer.go         - http channel handler initializer
-    route.go               - http endpoint routing procedure
-    service.go             - http service procedure
+  /helpers                 - helper functions
   /models                  - service model
-    /api                   - service api model
-    /database              - service database model
-  /services                - helper/services
+  /repositories            - data access layer
+  /services                - business logic services
+  /worker                  - background worker
+    /internal              - internal worker utilities
+    /tasks                 - worker task definitions
   init.go                  - service init procedure define
-/components                - common libs, for service without any git repo.
-/database                  - database definition
-  /seed                    - database seed file
-  /table                   - database schema
-/example                   - example
+/docs                      - documentation
+  /openapi                 - OpenAPI specification
 /resources                 - static resources
   /static
     /static
@@ -80,15 +82,14 @@ GOOS=linux GOARCH=arm64 go build
     favicon.ico            - favicon
     robots.txt             - robots.txt
   /template                - page template files
-    _footer_claim.tmpl     - page footer claim block
-    _footer_content.tmpl   - page footer content block
-    _header_claim.tmpl     - page header claim block
-    _header_content.tmpl   - page header content block
-    _main.tmpl             - page main structure definition block
+    /default               - default language templates
+    /<lang>                - language specific templates
   /translation             - dictionary files
+/tests                     - test files
+  /e2e                     - end-to-end tests
+  /units                   - unit tests
 .gitignore                 - project git ignore file
-.gitlab-ci.sample.yml      - ci sample file
-config.sample.yaml         - configuration sample file
+example.config.yaml        - configuration sample file
 Dockerfile                 - docker build sample file
 main.go                    - program main entrypoint
 ```

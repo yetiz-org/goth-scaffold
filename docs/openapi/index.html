@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goth Scaffold API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .topbar {
+            display: none;
+        }
+
+        #api-selector-container {
+            background-color: #1b1b1b;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3b4151;
+        }
+
+        #api-selector-container label {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+            font-family: sans-serif;
+        }
+
+        #api-selector {
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #3b4151;
+            border-radius: 4px;
+            background-color: #2d2d2d;
+            color: #fff;
+            cursor: pointer;
+            min-width: 200px;
+        }
+
+        #api-selector:hover {
+            border-color: #89bf04;
+        }
+
+        #api-selector option {
+            background-color: #2d2d2d;
+            color: #fff;
+        }
+
+        #loading {
+            display: none;
+            color: #fff;
+            margin-left: 15px;
+            font-size: 14px;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="api-selector-container">
+        <label for="api-selector">Select API Specification:</label>
+        <select id="api-selector">
+            <option value="openapi.yaml">API Documentation</option>
+        </select>
+        <span id="loading">Loading...</span>
+    </div>
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        // Load and parse YAML file
+        async function loadYaml(filename) {
+            const response = await fetch(filename);
+            const text = await response.text();
+            return jsyaml.load(text);
+        }
+
+        // Initialize Swagger UI with spec object
+        function initSwaggerUI(spec) {
+            window.ui = SwaggerUIBundle({
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                persistAuthorization: true,
+                tryItOutEnabled: true,
+                filter: true,
+                syntaxHighlight: {
+                    activate: true,
+                    theme: "monokai"
+                },
+                onComplete: function () {
+                    // Bind server selector after Swagger UI initialization is complete
+                    bindServerSelector();
+                }
+            });
+
+            // Initialize OAuth2 configuration with auto refresh
+            window.ui.initOAuth({
+                clientId: "645B38BC7C1E9F261B8B5EBBF0A249ED",
+                clientSecret: "",
+                realm: "goth-scaffold",
+                appName: "Swagger UI",
+                scopeSeparator: " ",
+                scopes: "",
+                additionalQueryStringParams: {},
+                useBasicAuthenticationWithAccessCodeGrant: false,
+                usePkceWithAuthorizationCodeGrant: true
+            });
+        }
+
+        // Bind server selector and restore from localStorage
+        function bindServerSelector() {
+            const serverSelector = document.querySelector('#swagger-ui .servers select');
+
+            if (!serverSelector) {
+                return;
+            }
+
+            // Restore previously selected server from localStorage
+            const savedServer = localStorage.getItem('selectedServer');
+
+            if (savedServer) {
+                serverSelector.value = savedServer;
+
+                // Set up MutationObserver to watch for changes to the server selector
+                // This handles the case where Swagger UI resets the value
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                            const currentValue = document.querySelector('#swagger-ui .servers select')?.value;
+
+                            // If the value was changed away from our saved value, restore it
+                            if (currentValue !== savedServer) {
+                                serverSelector.value = savedServer;
+                                // Stop observing after successful restoration
+                                observer.disconnect();
+                            }
+                        }
+                    });
+                });
+
+                if (serverSelector) {
+                    observer.observe(serverSelector, {
+                        attributes: true,
+                        attributeFilter: ['value']
+                    });
+
+                    // Stop observing after 2 seconds to avoid unnecessary overhead
+                    setTimeout(() => {
+                        observer.disconnect();
+                    }, 2000);
+                }
+            }
+
+            // Handle server change
+            serverSelector.addEventListener('change', function () {
+                // Save server selection to localStorage
+                localStorage.setItem('selectedServer', this.value);
+            });
+        }
+
+        // Load and display spec
+        async function loadSpec(filename) {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'inline';
+
+            try {
+                const spec = await loadYaml(filename);
+                initSwaggerUI(spec);
+            } catch (error) {
+                console.error('Error loading spec:', error);
+                alert('Failed to load API specification: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Get the selector element
+        const selector = document.getElementById('api-selector');
+
+        // Restore previously selected spec from localStorage (only if valid)
+        const savedSpec = localStorage.getItem('selectedApiSpec');
+        if (savedSpec && Array.from(selector.options).some(opt => opt.value === savedSpec)) {
+            selector.value = savedSpec;
+        } else {
+            // Clear invalid saved spec
+            localStorage.removeItem('selectedApiSpec');
+        }
+
+        // Load the selected spec on page load
+        loadSpec(selector.value);
+
+        // Handle spec change
+        selector.addEventListener('change', function () {
+            // Save selection to localStorage
+            localStorage.setItem('selectedApiSpec', this.value);
+            loadSpec(this.value);
+        });
+    </script>
+</body>
+
+</html>

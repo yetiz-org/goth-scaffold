@@ -1,5 +1,16 @@
 #!/bin/bash
 
+if [ "$1" == "-h" ]; then
+  if [ "$(uname -m)" == "x86_64" ]; then
+    exec ./exec/amd64 "$@"
+  else
+    exec ./exec/arm64 "$@"
+  fi
+
+  return
+fi
+
+## Launch
 if [ "$(uname -m)" == "x86_64" ]; then
   exec ./exec/amd64 "$@"
 else
