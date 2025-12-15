@@ -1,0 +1,38 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: goth-scaffold-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=goth_scaffold
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./run/mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  cassandra:
+    image: cassandra:3.11
+    container_name: goth-scaffold-cassandra
+    environment:
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+    ports:
+      - "9042:9042"
+    volumes:
+      - ./run/cassandra:/var/lib/cassandra
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: goth-scaffold-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./run/redis:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
