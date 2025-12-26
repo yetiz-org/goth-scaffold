@@ -25,6 +25,22 @@ type DeletableTxRepository[T Model] interface {
 	DeleteTx(tx *gorm.DB, entity T) error
 }
 
+type UpsertableRepository[T Model] interface {
+	Upsert(entity T, conditions map[string]any) error
+}
+
+type UpsertableTxRepository[T Model] interface {
+	UpsertTx(tx *gorm.DB, entity T, conditions map[string]any) error
+}
+
+type FirstOrCreatableRepository[T Model] interface {
+	FirstOrCreate(entity T, conditions map[string]any) (bool, error)
+}
+
+type FirstOrCreatableTxRepository[T Model] interface {
+	FirstOrCreateTx(tx *gorm.DB, entity T, conditions map[string]any) (bool, error)
+}
+
 type TryUnique[T Model] interface {
 	UniqueCreate(entity T) error
 }
@@ -54,6 +70,10 @@ type DatabaseRepository[T Model] interface {
 	Repository[T]
 	SavableTxRepository[T]
 	DeletableTxRepository[T]
+	UpsertableRepository[T]
+	UpsertableTxRepository[T]
+	FirstOrCreatableRepository[T]
+	FirstOrCreatableTxRepository[T]
 	DB() *gorm.DB
 	DefaultLimit() int
 }
