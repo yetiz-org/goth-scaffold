@@ -10,24 +10,13 @@ import (
 )
 
 type SiteSettingRepository struct {
-	models.DatabaseRepository[*models.SiteSetting]
+	*DatabaseDefaultRepository[models.SiteSettingId, *models.SiteSetting]
 }
 
 func NewSiteSettingRepository(db *gorm.DB) models.SiteSettingRepository {
 	return &SiteSettingRepository{
-		NewDatabaseDefaultRepository[*models.SiteSetting](db),
+		NewDatabaseDefaultRepository[models.SiteSettingId, *models.SiteSetting](db),
 	}
-}
-
-func (r *SiteSettingRepository) Get(id int64) *models.SiteSetting {
-	model := new(models.SiteSetting)
-	if err := r.DB().First(model, id).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			kklogger.ErrorJ("repositories:SiteSettingRepository.Get#query!db_error", err.Error())
-		}
-		return nil
-	}
-	return model
 }
 
 func (r *SiteSettingRepository) GetByKey(category, key string) *models.SiteSetting {

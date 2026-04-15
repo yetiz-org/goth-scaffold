@@ -21,6 +21,7 @@ type SetupLogger struct {
 
 func (d *SetupLogger) Start() {
 	hostname, _ := os.Hostname()
+	kklogger.SetLogLevel(conf.Config().Logger.LogLevel)
 	var hooks []kklogger.LoggerHook
 
 	if !conf.IsLocal() {

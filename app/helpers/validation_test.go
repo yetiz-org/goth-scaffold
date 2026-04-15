@@ -6,11 +6,11 @@ import (
 
 func TestValidateLocale(t *testing.T) {
 	tests := []struct {
-		name              string
-		input             string
-		wantNormalized    string
-		wantValid         bool
-		description       string
+		name           string
+		input          string
+		wantNormalized string
+		wantValid      bool
+		description    string
 	}{
 		// Valid cases - language only
 		{

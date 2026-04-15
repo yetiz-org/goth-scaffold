@@ -7,14 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/gocql/gocql"
 	base62 "github.com/yetiz-org/goth-base62"
-	"github.com/yetiz-org/goth-bytebuf"
-	"github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-util/hex"
-	"github.com/yetiz-org/goth-util/value"
 )
 
 var IDCodec = base62.FlipShiftEncoding
@@ -42,6 +42,90 @@ func (v *LenValidationError) Error() string {
 	return v.Field
 }
 
+// ValidateColumnLength validates string field lengths against the size constraint
+// defined in gorm struct tags (e.g., `gorm:"size:255"`).
+// Returns *LenValidationError if any field exceeds its declared size limit.
+func ValidateColumnLength(model any) error {
+	v := reflect.ValueOf(model)
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return nil
+		}
+
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fieldValue := v.Field(i)
+
+		gormTag := field.Tag.Get("gorm")
+		if gormTag == "" {
+			continue
+		}
+
+		sizeStr := gormTagValue(gormTag, "size")
+		if sizeStr == "" {
+			continue
+		}
+
+		size, err := strconv.Atoi(sizeStr)
+		if err != nil || size <= 0 {
+			continue
+		}
+
+		var strValue string
+		switch fieldValue.Kind() {
+		case reflect.String:
+			strValue = fieldValue.String()
+		case reflect.Pointer:
+			if fieldValue.IsNil() {
+				continue
+			}
+
+			elem := fieldValue.Elem()
+			if elem.Kind() == reflect.String {
+				strValue = elem.String()
+			} else {
+				continue
+			}
+
+		default:
+			continue
+		}
+
+		columnName := gormTagValue(gormTag, "column")
+		if columnName == "" {
+			columnName = field.Name
+		}
+
+		if utf8.RuneCountInString(strValue) > size {
+			return &LenValidationError{
+				Field:   columnName,
+				Message: fmt.Sprintf("exceeds maximum length of %d", size),
+			}
+		}
+	}
+
+	return nil
+}
+
+func gormTagValue(tag string, key string) string {
+	parts := strings.Split(tag, ";")
+	for _, part := range parts {
+		if after, ok := strings.CutPrefix(part, key+":"); ok {
+			return after
+		}
+	}
+
+	return ""
+}
+
 type Validatable interface {
 	Validate() bool
 }
@@ -64,6 +148,66 @@ type ModelDeletePostHook interface {
 
 type CassandraModelScan interface {
 	Scan(iter *gocql.Iter) bool
+}
+
+// TimeOfDay represents a time-only value stored as MySQL TIME.
+type TimeOfDay struct {
+	time.Time
+}
+
+// Scan implements sql.Scanner for MySQL TIME values.
+func (t *TimeOfDay) Scan(value any) error {
+	if value == nil {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		t.Time = v
+		return nil
+	case []byte:
+		return t.parseString(string(v))
+	case string:
+		return t.parseString(v)
+	default:
+		return fmt.Errorf("invalid time value: %T", value)
+	}
+}
+
+func (t *TimeOfDay) parseString(value string) error {
+	if value == "" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	parsed, err := time.Parse("15:04:05", value)
+	if err != nil {
+		return err
+	}
+
+	t.Time = parsed
+	return nil
+}
+
+// Value implements driver.Valuer for MySQL TIME values.
+func (t TimeOfDay) Value() (driver.Value, error) {
+	if t.Time.IsZero() {
+		return "00:00:00", nil
+	}
+
+	return t.Time.Format("15:04:05"), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for MySQL TIME format "HH:MM:SS".
+func (t *TimeOfDay) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	if s == "null" || s == "" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	return t.parseString(s)
 }
 
 type Scope Privileges
@@ -126,7 +270,7 @@ func (s Scope) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (s Scope) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
+func (s *Scope) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -170,8 +314,8 @@ type CredentialId string
 
 func (a CredentialId) AppId() string {
 	s := string(a)
-	if strings.HasPrefix(s, "ast-") {
-		s = strings.TrimPrefix(s, "ast-")
+	if after, ok := strings.CutPrefix(s, "ast-"); ok {
+		s = after
 	}
 	decoded, _ := base64.RawURLEncoding.DecodeString(s)
 	if len(decoded) <= 16 {
@@ -246,7 +390,7 @@ func (p Privileges) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
 	return json.Marshal(p)
 }
 
-func (p Privileges) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
+func (p *Privileges) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -288,6 +432,49 @@ func (p *Privileges) UnmarshalJSON(body []byte) (err error) {
 
 type Metadata map[string]any
 
+func (c Metadata) Value() (driver.Value, error) {
+	if c == nil {
+		return nil, nil
+	}
+
+	b, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return string(b), nil
+}
+
+func (c *Metadata) Scan(value any) error {
+	if value == nil {
+		*c = nil
+		return nil
+	}
+
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return fmt.Errorf("unsupported type: %T", value)
+	}
+
+	if len(data) == 0 {
+		*c = nil
+		return nil
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(data, &out); err != nil {
+		return err
+	}
+
+	*c = out
+	return nil
+}
+
 func (c Metadata) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
@@ -302,7 +489,7 @@ func (c Metadata) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
 	return json.Marshal(c)
 }
 
-func (c Metadata) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
+func (c *Metadata) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -340,234 +527,4 @@ func (c *Metadata) UnmarshalJSON(body []byte) (err error) {
 
 	*c = m
 	return nil
-}
-
-const QueryOptionFlag = "GOTH_QUERY_OPTION"
-
-type QueryOption interface {
-	Operate(query *gocql.Query)
-}
-
-func DefaultQueryOption(next string) []QueryOption {
-	return []QueryOption{&QueryNext{Next: next}, &QueryLimit{Limit: 50}}
-}
-
-type QueryLimit struct {
-	Limit int
-}
-
-func (q *QueryLimit) Operate(query *gocql.Query) {
-	if q.Limit > 0 {
-		if _, f := query.Context().Value(QueryOptionFlag).(map[string]any)["PageState"]; !f {
-			query.PageState(nil)
-		}
-
-		query.PageSize(q.Limit)
-	}
-}
-
-type QueryNext struct {
-	Next string
-}
-
-func (q *QueryNext) Operate(query *gocql.Query) {
-	if q.Next != "" {
-		bs := buf.NewByteBuf(IDCodec.DecodeString(q.Next))
-		l := bs.ReadInt32()
-		query.Context().Value(QueryOptionFlag).(map[string]any)["PageState"] = true
-		query.PageState(bs.ReadBytes(int(l)))
-	}
-}
-
-func scanNext[T Model](iter *gocql.Iter) (instance T, ok bool) {
-	instance = reflect.New(reflect.New(reflect.TypeOf(*new(T))).Elem().Type().Elem()).Interface().(T)
-	if model, isCustomScan := any(instance).(CassandraModelScan); isCustomScan {
-		ok = model.Scan(iter)
-	} else {
-		ok = scan(iter, instance)
-	}
-
-	return instance, ok
-}
-
-func scan(iter *gocql.Iter, m any) bool {
-	maps := map[string]any{}
-	if !iter.MapScan(maps) {
-		return false
-	}
-
-	if err := json.Unmarshal([]byte(value.JsonMarshal(maps)), m); err != nil {
-		kklogger.ErrorJ("models:Helper.scan#keyspaces!scan_error", err.Error())
-		return false
-	}
-
-	return true
-}
-
-func prepareQuery(query *gocql.Query, opts ...QueryOption) *gocql.Query {
-	query = query.WithContext(context.WithValue(context.Background(), QueryOptionFlag, map[string]any{}))
-	for _, opt := range opts {
-		opt.Operate(query)
-	}
-
-	return query
-}
-
-func QueryFinalizeFirst[T Model](session *gocql.Session, stmt string, args []any, opts ...QueryOption) (object T) {
-	query := prepareQuery(session.Query(stmt, args...), append(opts, &QueryLimit{Limit: 1})...)
-	iter := query.Iter()
-	defer CloseIter(iter)
-
-	if instance, ok := scanNext[T](iter); ok {
-		object = instance
-	}
-
-	return
-}
-
-func QueryFinalize[T Model](session *gocql.Session, stmt string, args []any, opts ...QueryOption) (objects []T, result QueryResult[T]) {
-	query := prepareQuery(session.Query(stmt, args...), opts...)
-	objects = make([]T, 0)
-	iter := query.Iter()
-	defer CloseIter(iter)
-
-	for instance, ok := scanNext[T](iter); ok; instance, ok = scanNext[T](iter) {
-		objects = append(objects, instance)
-	}
-
-	if l := int32(len(iter.PageState())); l > 0 {
-		result.NextId = IDCodec.EncodeToString(buf.EmptyByteBuf().WriteInt32(l).WriteBytes(iter.PageState()).Bytes())
-	}
-
-	result.Count = len(objects)
-	result.session = session
-	result.queryOptions = opts
-	result.query = query
-	return
-}
-
-type QueryResult[T Model] struct {
-	Count        int    `json:"count"`
-	NextId       string `json:"next_id"`
-	session      *gocql.Session
-	queryOptions []QueryOption
-	query        *gocql.Query
-}
-
-func (q *QueryResult[T]) Next(session ...*gocql.Session) (objects []T, result QueryResult[T]) {
-	if q.query == nil || q.NextId == "" {
-		return
-	}
-
-	newQueryOptions := make([]QueryOption, 0)
-	for _, opt := range q.queryOptions {
-		if _, ok := opt.(*QueryNext); ok {
-			continue
-		}
-
-		newQueryOptions = append(newQueryOptions, opt)
-	}
-
-	sess := q.session
-	if len(session) > 0 {
-		sess = session[0]
-	}
-
-	newQueryOptions = append(newQueryOptions, &QueryNext{Next: q.NextId})
-	return QueryFinalize[T](sess, q.query.Statement(), q.query.Values(), newQueryOptions...)
-}
-
-func CloseIter(iter *gocql.Iter) {
-	if iter != nil {
-		if err := iter.Close(); err != nil {
-			kklogger.WarnJ("models:Helper.CloseIter#keyspaces!close_error", err.Error())
-		}
-	}
-}
-
-type QueryBuilder[T Model] struct {
-	session      *gocql.Session
-	fields       []string
-	conditions   map[string]any
-	orders       []string
-	queryOptions []QueryOption
-	limit        int
-	nextId       string
-}
-
-func NewQueryBuilder[T Model](session *gocql.Session) *QueryBuilder[T] {
-	return &QueryBuilder[T]{session: session, conditions: map[string]any{}}
-}
-
-func (b *QueryBuilder[T]) Fields(fields ...string) *QueryBuilder[T] {
-	b.fields = fields
-	return b
-}
-
-func (b *QueryBuilder[T]) Where(condition string, arg any) *QueryBuilder[T] {
-	b.conditions[condition] = arg
-	return b
-}
-
-func (b *QueryBuilder[T]) Order(order string) *QueryBuilder[T] {
-	b.orders = append(b.orders, order)
-	return b
-}
-
-func (b *QueryBuilder[T]) Limit(limit int) *QueryBuilder[T] {
-	b.limit = limit
-	return b
-}
-
-func (b *QueryBuilder[T]) Next(nextId string) *QueryBuilder[T] {
-	b.nextId = nextId
-	return b
-}
-
-func (b *QueryBuilder[T]) buildQuery() (stmt string, args []any) {
-	stmt = "SELECT "
-	args = make([]any, 0)
-
-	if len(b.fields) > 0 {
-		stmt += strings.Join(b.fields, ",")
-	} else {
-		stmt += "*"
-	}
-
-	stmt += " FROM " + (reflect.New(reflect.New(reflect.TypeOf(*new(T))).Elem().Type().Elem()).Interface()).(T).TableName()
-
-	if len(b.conditions) > 0 {
-		conditions := make([]string, 0)
-		for k, v := range b.conditions {
-			conditions = append(conditions, k)
-			args = append(args, v)
-		}
-		stmt += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	if len(b.orders) > 0 {
-		stmt += " ORDER BY " + strings.Join(b.orders, ",")
-	}
-
-	return stmt, args
-}
-
-func (b *QueryBuilder[T]) First() (object T) {
-	stmt, args := b.buildQuery()
-	return QueryFinalizeFirst[T](b.session, stmt, args, &QueryLimit{Limit: 1})
-}
-
-func (b *QueryBuilder[T]) Fetch(queryOptions ...QueryOption) (objects []T, result QueryResult[T]) {
-	stmt, args := b.buildQuery()
-	qos := make([]QueryOption, 0)
-	if b.limit > 0 {
-		qos = append(qos, &QueryLimit{Limit: b.limit})
-	}
-
-	if b.nextId != "" {
-		qos = append(qos, &QueryNext{Next: b.nextId})
-	}
-
-	qos = append(qos, queryOptions...)
-	return QueryFinalize[T](b.session, stmt, args, qos...)
 }

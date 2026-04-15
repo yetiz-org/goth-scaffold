@@ -25,7 +25,12 @@ func (d *SetupEnvironment) Start() {
 	runtime.GOMAXPROCS(runtime.NumCPU() * 8)
 	secret.PATH = conf.Config().DataStore.SecretPath
 	kklogger.ConfigFileName = conf.ConfigPath
-	conf.Config().Logger.LoggerPath = fmt.Sprintf("%s/%d_%s-%s/", conf.Config().Logger.LoggerPath, time.Now().Unix(), time.Now().Format("2006-01-02_15:04:05"), hostname)
+	basePath := conf.Config().Logger.LoggerPath
+	if basePath == "" {
+		basePath = "alloc/logs"
+	}
+
+	conf.Config().Logger.LoggerPath = fmt.Sprintf("%s/%d_%s-%s/", basePath, time.Now().Unix(), time.Now().Format("2006-01-02_15:04:05"), hostname)
 	os.Setenv("GOTH_LOGGER_PATH", conf.Config().Logger.LoggerPath)
 
 	if runtime.GOOS == "linux" {

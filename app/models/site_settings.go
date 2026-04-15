@@ -5,8 +5,35 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/yetiz-org/goth-scaffold/app/components/crypto"
 	"gorm.io/gorm"
 )
+
+// ─── ID type ─────────────────────────────────────────────────────────────────
+
+type SiteSettingId crypto.KeyId
+
+const KeyTypeSiteSettingId crypto.KeyType = "site_setting_id"
+
+func (k SiteSettingId) EncryptId() (string, error) {
+	return crypto.EncryptKeyId(KeyTypeSiteSettingId, crypto.KeyId(k))
+}
+
+func (k SiteSettingId) EncryptedId() string {
+	return crypto.EncryptedKeyId(KeyTypeSiteSettingId, crypto.KeyId(k))
+}
+
+func (k SiteSettingId) UInt64() uint64 { return uint64(k) }
+
+func (k SiteSettingId) DecryptId(enc string) (SiteSettingId, error) {
+	v, err := crypto.DecryptKeyId[crypto.KeyId](KeyTypeSiteSettingId, enc)
+	return SiteSettingId(v), err
+}
+
+// Resolve loads the SiteSetting with this ID (used by LazyBelongsTo in child models).
+func (k SiteSettingId) Resolve() *SiteSetting {
+	return ResolveById[SiteSetting](k)
+}
 
 // SiteSettingValue represents a flexible JSON value
 type SiteSettingValue json.RawMessage
@@ -61,9 +88,12 @@ func MustNewSiteSettingValue(value interface{}) SiteSettingValue {
 	return v
 }
 
-// SiteSetting represents a site configuration setting
+// SiteSetting represents a site configuration setting.
+//
+// Associations:
+//   - Tags() []*SiteSettingTag — lazy has-many; use models.EagerAll[*SiteSetting]() to batch-load.
 type SiteSetting struct {
-	ID             int64            `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	ID             SiteSettingId    `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
 	Category       string           `json:"category" gorm:"column:category;not null;index:idx_category_key_effective"`
 	Key            string           `json:"key" gorm:"column:key;not null;index:idx_category_key_effective"`
 	Value          SiteSettingValue `json:"value" gorm:"column:value;type:text;not null"`
@@ -74,6 +104,28 @@ type SiteSetting struct {
 	CreatedAt      time.Time        `json:"created_at" gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt      time.Time        `json:"updated_at" gorm:"column:updated_at;not null;autoUpdateTime"`
 	DeletedAt      gorm.DeletedAt   `json:"deleted_at" gorm:"column:deleted_at"`
+
+	// Lazy has-many association — do NOT use in GORM Preload; use Tags() accessor.
+	_Tags []*SiteSettingTag `gorm:"foreignKey:SiteSettingID;references:ID"`
+}
+
+// SetCacheTags pre-populates the tags cache (called by batch eager loading via EagerAll).
+func (m *SiteSetting) SetCacheTags(v []*SiteSettingTag) {
+	if m == nil {
+		return
+	}
+
+	m._Tags = v
+}
+
+// Tags returns the SiteSettingTag records for this setting, loading lazily on first access.
+// Pass models.EagerAll[*SiteSetting]() to the repository query for N+1-free batch loading.
+func (m *SiteSetting) Tags() []*SiteSettingTag {
+	if m == nil {
+		return nil
+	}
+
+	return LazyHasMany[SiteSettingTag](m, &m._Tags)
 }
 
 func (m *SiteSetting) TableName() string {
@@ -101,8 +153,7 @@ func (s *SiteSetting) GetTypedValue(target interface{}) error {
 
 // SiteSettingRepository defines the interface for site settings repository
 type SiteSettingRepository interface {
-	DatabaseRepository[*SiteSetting]
-	Get(id int64) *SiteSetting
+	DatabaseRepository[SiteSettingId, *SiteSetting]
 	GetByKey(category, key string) *SiteSetting
 	GetEffectiveByKey(category, key string, now time.Time) *SiteSetting
 	GetAllByCategory(category string) []*SiteSetting

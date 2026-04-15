@@ -19,11 +19,11 @@ func (r *MaintenanceLogRepository) Get(typ, key string) (maintenanceLog *models.
 	return r.QueryBuilder().Where("type = ?", typ).Where("key = ?", key).First()
 }
 
-func (r *MaintenanceLogRepository) GetAll(typ string, opts ...models.QueryOption) (maintenanceLogs []*models.MaintenanceLog, queryResult models.QueryResult[*models.MaintenanceLog]) {
+func (r *MaintenanceLogRepository) GetAll(typ string, opts ...models.CassandraQueryOption) (maintenanceLogs []*models.MaintenanceLog, queryResult models.CassandraQueryResult[*models.MaintenanceLog]) {
 	return r.QueryBuilder().Where("type = ?", typ).Fetch(opts...)
 }
 
-func (r *MaintenanceLogRepository) GetByKeyRange(typ, keyStart, keyEnd string, includeEnd bool, opts ...models.QueryOption) (maintenanceLogs []*models.MaintenanceLog, queryResult models.QueryResult[*models.MaintenanceLog]) {
+func (r *MaintenanceLogRepository) GetByKeyRange(typ, keyStart, keyEnd string, includeEnd bool, opts ...models.CassandraQueryOption) (maintenanceLogs []*models.MaintenanceLog, queryResult models.CassandraQueryResult[*models.MaintenanceLog]) {
 	endCondition := "key < ?"
 	if includeEnd {
 		endCondition = "key <= ?"

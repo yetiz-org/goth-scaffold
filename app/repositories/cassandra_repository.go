@@ -45,8 +45,8 @@ func (r *CassandraDefaultRepository[T]) Session() *gocql.Session {
 	return r.session
 }
 
-func (r *CassandraDefaultRepository[T]) QueryBuilder() *models.QueryBuilder[T] {
-	return models.NewQueryBuilder[T](r.Session())
+func (r *CassandraDefaultRepository[T]) QueryBuilder() *models.CassandraQueryBuilder[T] {
+	return models.NewCassandraQueryBuilder[T](r.Session())
 }
 
 func (r *CassandraDefaultRepository[T]) SaveQuery(entity T) (stmt string, args []any) {

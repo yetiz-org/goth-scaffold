@@ -19,7 +19,7 @@ func _Init() {
 		if !Enabled() {
 			return
 		}
-		
+
 		cassandra = datastore.NewCassandra(conf.Config().DataStore.CassandraName)
 		cassandra.Writer().Config().DisableInitialHostLookup = true
 		cassandra.Reader().Config().DisableInitialHostLookup = true

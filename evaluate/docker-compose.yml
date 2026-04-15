@@ -1,25 +1,31 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: goth-scaffold-mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=goth_scaffold
+    container_name: scaffold-mysql
+    env_file:
+      - templates/defaults.env
     ports:
       - "3306:3306"
     volumes:
-      - ./run/mysql:/var/lib/mysql
+      - ./_run/mysql:/var/lib/mysql
+    networks:
+      - scaffold-network
     restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
 
   cassandra:
     image: cassandra:3.11
-    container_name: goth-scaffold-cassandra
+    container_name: scaffold-cassandra
+    env_file:
+      - templates/defaults.env
     environment:
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
     ports:
       - "9042:9042"
     volumes:
-      - ./run/cassandra:/var/lib/cassandra
+      - ./_run/cassandra:/var/lib/cassandra
+    networks:
+      - scaffold-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
@@ -29,10 +35,38 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: goth-scaffold-redis
+    container_name: scaffold-redis
     ports:
       - "6379:6379"
     volumes:
-      - ./run/redis:/data
+      - ./_run/redis:/data
+    networks:
+      - scaffold-network
     restart: unless-stopped
     command: redis-server --appendonly yes
+
+  asynqmon:
+    # Asynq queue monitor UI — accessible at http://localhost:8081
+    # Displays queued / active / scheduled / retry / dead tasks.
+    image: yetizorg/asynqmon:latest
+    container_name: scaffold-asynqmon
+    ports:
+      - "8081:8081"
+    networks:
+      - scaffold-network
+    restart: unless-stopped
+    environment:
+      - PORT=8081
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+networks:
+  scaffold-network:
+    driver: bridge

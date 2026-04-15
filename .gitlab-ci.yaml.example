@@ -1,0 +1,202 @@
+# GitLab CI/CD Example
+# ─────────────────────────────────────────────────────────────────────────────
+# HOW TO USE:
+#   cp .gitlab-ci.yaml.example .gitlab-ci.yml
+#   Then customise variables, stages, and deployment steps for your project.
+# ─────────────────────────────────────────────────────────────────────────────
+
+variables:
+  GO_VERSION: "1.24"
+  APP_NAME: "app"           # override per project
+  REGISTRY: "registry.example.com"
+  IMAGE_BASE: "${REGISTRY}/${APP_NAME}"
+
+  # Go cache directories (avoids re-downloading modules every run)
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+  GOPATH: "$CI_PROJECT_DIR/.cache/go"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go/pkg/mod"
+
+  # Services used in test stages
+  MYSQL_ROOT_PASSWORD: "root"
+  MYSQL_DATABASE: "app_test"
+  REDIS_HOST: "redis"
+
+# ─── Stages ──────────────────────────────────────────────────────────────────
+stages:
+  - build
+  - test
+  - image
+  - migrate
+  - deploy
+
+# ─── Cache ───────────────────────────────────────────────────────────────────
+# File-hash key: cache is invalidated only when go.mod changes (more efficient
+# than a branch-slug key which misses cross-branch reuse).
+.go_cache: &go_cache
+  cache:
+    key:
+      files:
+        - go.mod
+    paths:
+      - .cache/go-build/
+      - .cache/go/pkg/mod/
+  before_script:
+    - mkdir -p "$GOCACHE" "$GOMODCACHE"
+
+# ─── Build ───────────────────────────────────────────────────────────────────
+build:
+  stage: build
+  image: golang:${GO_VERSION}-alpine
+  <<: *go_cache
+  script:
+    - go mod download
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ${APP_NAME}-amd64 ./
+    - CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ${APP_NAME}-arm64 ./
+  artifacts:
+    paths:
+      - ${APP_NAME}-amd64
+      - ${APP_NAME}-arm64
+    expire_in: 1 hour
+
+# ─── Unit tests ──────────────────────────────────────────────────────────────
+test:unit:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  <<: *go_cache
+  cache:
+    key:
+      files:
+        - go.mod
+    paths:
+      - .cache/go-build/
+      - .cache/go/pkg/mod/
+    policy: pull
+  script:
+    - go test -v -count=1 -race ./tests/units/...
+
+# ─── Integration tests (with services) ───────────────────────────────────────
+test:integration:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  <<: *go_cache
+  cache:
+    key:
+      files:
+        - go.mod
+    paths:
+      - .cache/go-build/
+      - .cache/go/pkg/mod/
+    policy: pull
+  services:
+    - name: mysql:8.0
+      alias: mysql
+      variables:
+        MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+        MYSQL_DATABASE: $MYSQL_DATABASE
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    APP_DATASTORE_HOST: mysql
+    APP_DATASTORE_DATABASE_NAME: $MYSQL_DATABASE
+    APP_DATASTORE_USERNAME: root
+    APP_DATASTORE_PASSWORD: $MYSQL_ROOT_PASSWORD
+    APP_REDIS_HOST: redis
+  script:
+    - go test -v -count=1 ./tests/integration/...
+
+# ─── E2E tests (full HTTP stack against a running binary) ─────────────────────
+# Runs in parallel with unit/integration tests.
+# The test harness (tests/e2e/main_test.go) detects CI=true, uses the pre-built
+# binary from the build stage artifact, and manages server lifecycle internally.
+test:e2e:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  needs: [build]
+  <<: *go_cache
+  cache:
+    key:
+      files:
+        - go.mod
+    paths:
+      - .cache/go-build/
+      - .cache/go/pkg/mod/
+    policy: pull
+  services:
+    - name: mysql:8.0
+      alias: mysql
+      variables:
+        MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+        MYSQL_DATABASE: $MYSQL_DATABASE
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    CI: "true"
+    APP_DATASTORE_HOST: mysql
+    APP_DATASTORE_DATABASE_NAME: $MYSQL_DATABASE
+    APP_DATASTORE_USERNAME: root
+    APP_DATASTORE_PASSWORD: $MYSQL_ROOT_PASSWORD
+    APP_REDIS_HOST: redis
+  before_script:
+    - mkdir -p "$GOCACHE" "$GOMODCACHE"
+    - cp evaluate/config.yaml.ci.example evaluate/config.yaml.ci 2>/dev/null || true
+  script:
+    - go test -v -count=1 -timeout=120s ./tests/e2e/...
+  artifacts:
+    expire_in: 1 hr
+    paths:
+      - alloc/logs
+    when: always
+
+# ─── Docker image build & push ───────────────────────────────────────────────
+image:build:
+  stage: image
+  image: docker:24
+  services:
+    - docker:24-dind
+  needs: [build]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "staging"
+    - if: $CI_COMMIT_TAG
+  script:
+    - docker buildx create --use
+    - docker buildx build
+        --platform linux/amd64,linux/arm64
+        --tag ${IMAGE_BASE}:${CI_COMMIT_SHORT_SHA}
+        --tag ${IMAGE_BASE}:latest
+        --push
+        .
+
+# ─── DB migration (manual — runs after image push, before deploy) ─────────────
+db:migrate:
+  stage: migrate
+  image: ${IMAGE_BASE}:${CI_COMMIT_SHORT_SHA}
+  needs: [image:build]
+  environment:
+    name: $CI_ENVIRONMENT_NAME
+  rules:
+    - when: manual
+      allow_failure: true
+  script:
+    - /srv/app/launcher -c config.yaml -m db_migration
+
+# ─── Deploy ──────────────────────────────────────────────────────────────────
+deploy:staging:
+  stage: deploy
+  environment:
+    name: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+  script:
+    - echo "Deploy to staging — add your deploy commands here"
+    # e.g.: kubectl set image deployment/app app=${IMAGE_BASE}:${CI_COMMIT_SHORT_SHA}
+
+deploy:production:
+  stage: deploy
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  when: manual
+  script:
+    - echo "Deploy to production — add your deploy commands here"

@@ -16,6 +16,6 @@ func (m *MaintenanceLog) TableName() string {
 type MaintenanceLogRepository interface {
 	CassandraRepository[*MaintenanceLog]
 	Get(typ, key string) (maintenanceLog *MaintenanceLog)
-	GetAll(typ string, opts ...QueryOption) (maintenanceLogs []*MaintenanceLog, queryResult QueryResult[*MaintenanceLog])
-	GetByKeyRange(typ, keyStart, keyEnd string, includeEnd bool, opts ...QueryOption) (maintenanceLogs []*MaintenanceLog, queryResult QueryResult[*MaintenanceLog])
+	GetAll(typ string, opts ...CassandraQueryOption) (maintenanceLogs []*MaintenanceLog, queryResult CassandraQueryResult[*MaintenanceLog])
+	GetByKeyRange(typ, keyStart, keyEnd string, includeEnd bool, opts ...CassandraQueryOption) (maintenanceLogs []*MaintenanceLog, queryResult CassandraQueryResult[*MaintenanceLog])
 }
