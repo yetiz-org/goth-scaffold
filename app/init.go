@@ -44,6 +44,7 @@ func FlagParse() {
 	}
 
 	conf.ConfigPath = configPath
+	conf.Config().Reload()
 	if os.Getenv("APP_MODE") == "" && mode != "" {
 		os.Setenv("APP_MODE", mode)
 	}

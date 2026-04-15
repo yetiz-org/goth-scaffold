@@ -24,6 +24,7 @@ func (d *SetupEnvironment) Start() {
 	hostname, _ := os.Hostname()
 	runtime.GOMAXPROCS(runtime.NumCPU() * 8)
 	secret.PATH = conf.Config().DataStore.SecretPath
+	os.Setenv("GOTH_SECRET_PATH", conf.Config().DataStore.SecretPath)
 	kklogger.ConfigFileName = conf.ConfigPath
 	basePath := conf.Config().Logger.LoggerPath
 	if basePath == "" {

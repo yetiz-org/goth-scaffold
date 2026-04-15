@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 PROJECT_NAME := scaffold
+PROJECT_DB   := $(shell echo $(PROJECT_NAME) | tr '-' '_')
 EVALUATE_DIR := evaluate
 COMPOSE_FILE := $(EVALUATE_DIR)/docker-compose.yml
 COMPOSE      ?= docker compose
@@ -33,13 +34,8 @@ help: ## Show this help
 
 # ─── Local Environment (Docker Compose) ──────────────────────────────────────
 .PHONY: local-env-setup
-local-env-setup: ## Create config.yaml.local from example (first-time setup)
-	@if [ ! -f $(CONFIG_FILE) ]; then \
-		cp $(EVALUATE_DIR)/config.yaml.local.example $(CONFIG_FILE); \
-		echo "$(GREEN)[OK]$(NC) Created $(CONFIG_FILE) — edit as needed"; \
-	else \
-		echo "$(YELLOW)[SKIP]$(NC) $(CONFIG_FILE) already exists"; \
-	fi
+local-env-setup: ## Generate config.yaml.local and env credentials from templates (idempotent)
+	@bash $(EVALUATE_DIR)/scripts/generate-configs.sh
 
 .PHONY: local-env-start
 local-env-start: ## Start all Docker services
@@ -70,7 +66,7 @@ local-env-clean: ## Destroy all local data volumes and config (destructive)
 			sh -c "rm -rf /data/*" 2>/dev/null || true; \
 		rm -rf $(EVALUATE_DIR)/_run; \
 	fi
-	@rm -f $(EVALUATE_DIR)/config.yaml.local
+	@rm -rf $(EVALUATE_DIR)/env
 	@echo "$(GREEN)[OK]$(NC) Environment cleaned"
 
 # ─── Service Connections ──────────────────────────────────────────────────────
@@ -106,21 +102,48 @@ clean: ## Remove compiled binaries
 
 # ─── Run ─────────────────────────────────────────────────────────────────────
 .PHONY: local-run
-local-run: build ## Build and start API on :8080 (default mode)
+local-run: local-env-setup local-env-start _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Build and start API on :8080 (default mode)
 	@echo "$(BLUE)[INFO]$(NC) Starting API on :8080 (mode=default)"
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m default
 
 # ─── Service Health Wait ─────────────────────────────────────────────────────
-# Internal target: polls until MySQL is accepting connections (max 60 s).
+# Internal target: polls until MySQL is accepting connections (max 120 s).
 .PHONY: _local-wait-mysql
 _local-wait-mysql:
 	@echo "$(BLUE)[INFO]$(NC) Waiting for MySQL..."
-	@for i in $$(seq 1 30); do \
-		docker exec $(PROJECT_NAME)-mysql mysqladmin ping -h localhost --silent 2>/dev/null && \
-			echo "$(GREEN)[OK]$(NC) MySQL ready" && exit 0; \
+	@elapsed=0; \
+	for i in $$(seq 1 60); do \
+		printf "\r$(BLUE)[INFO]$(NC) MySQL check... %3ds / 120s  " $$elapsed; \
+		docker exec $(PROJECT_NAME)-mysql mysqladmin ping -h localhost --silent >/dev/null 2>&1 && \
+			printf "\n" && echo "$(GREEN)[OK]$(NC) MySQL ready ($$elapsed s)" && exit 0; \
 		sleep 2; \
+		elapsed=$$((elapsed + 2)); \
 	done; \
-	echo "$(RED)[ERR]$(NC) MySQL not ready after 60 s" && exit 1
+	printf "\n"; \
+	echo "$(RED)[ERR]$(NC) MySQL not ready after 120 s" && exit 1
+
+# Internal target: polls until Cassandra is accepting CQL connections (max 180 s).
+.PHONY: _local-wait-cassandra
+_local-wait-cassandra:
+	@echo "$(BLUE)[INFO]$(NC) Waiting for Cassandra..."
+	@elapsed=0; \
+	for i in $$(seq 1 90); do \
+		printf "\r$(BLUE)[INFO]$(NC) Cassandra check... %3ds / 180s  " $$elapsed; \
+		docker exec $(PROJECT_NAME)-cassandra cqlsh -e "SELECT release_version FROM system.local" >/dev/null 2>&1 && \
+			printf "\n" && echo "$(GREEN)[OK]$(NC) Cassandra ready ($$elapsed s)" && exit 0; \
+		sleep 2; \
+		elapsed=$$((elapsed + 2)); \
+	done; \
+	printf "\n"; \
+	echo "$(RED)[ERR]$(NC) Cassandra not ready after 180 s" && exit 1
+
+# Internal target: creates the Cassandra keyspace for this project if it does not exist.
+.PHONY: _local-init-cassandra
+_local-init-cassandra:
+	@echo "$(BLUE)[INFO]$(NC) Initialising Cassandra keyspace $(PROJECT_DB)..."
+	@docker exec $(PROJECT_NAME)-cassandra cqlsh \
+		-e "CREATE KEYSPACE IF NOT EXISTS $(PROJECT_DB) WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};" && \
+		echo "$(GREEN)[OK]$(NC) Cassandra keyspace $(PROJECT_DB) ready"
 
 # ─── Database Operations ─────────────────────────────────────────────────────
 # local-db-migration ensures the environment is running before migrating.
@@ -128,7 +151,7 @@ _local-wait-mysql:
 # Running `make local-env-clean && make local-db-seed` produces a clean, seeded DB.
 # Running `make local-db-reseed` drops and recreates the DB then migrates + seeds.
 .PHONY: local-db-migration
-local-db-migration: local-env-setup local-env-start _local-wait-mysql build ## Ensure env is up, then run database migrations
+local-db-migration: local-env-setup local-env-start _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Ensure env is up, then run database migrations
 	@echo "$(BLUE)[INFO]$(NC) Running migrations..."
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m db_migration
 	@echo "$(GREEN)[OK]$(NC) Migrations done"
@@ -140,10 +163,10 @@ local-db-seed: local-db-migration ## Run migrations then seed data
 	@echo "$(GREEN)[OK]$(NC) Seeds done"
 
 .PHONY: local-db-reseed
-local-db-reseed: _local-wait-mysql build ## Drop and recreate MySQL database, then re-run migrations and seeds (services must be running)
-	@echo "$(YELLOW)[WARN]$(NC) Dropping and recreating database $(PROJECT_NAME)..."
+local-db-reseed: _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Drop and recreate MySQL database, then re-run migrations and seeds (services must be running)
+	@echo "$(YELLOW)[WARN]$(NC) Dropping and recreating database $(PROJECT_DB)..."
 	@docker exec $(PROJECT_NAME)-mysql mysql -u root -proot \
-		-e "DROP DATABASE IF EXISTS $(PROJECT_NAME); CREATE DATABASE $(PROJECT_NAME);" 2>/dev/null
+		-e "DROP DATABASE IF EXISTS $(PROJECT_DB); CREATE DATABASE $(PROJECT_DB);" 2>/dev/null
 	@echo "$(BLUE)[INFO]$(NC) Running migrations..."
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m db_migration
 	@echo "$(BLUE)[INFO]$(NC) Running seeds..."
@@ -185,20 +208,46 @@ scaffold: ## Create a new project from this scaffold (interactive)
 	[ -z "$$PROJ" ] && { echo "$(RED)[ERR]$(NC) Project name required"; exit 1; }; \
 	[ -z "$$MOD" ]  && { echo "$(RED)[ERR]$(NC) Module path required";  exit 1; }; \
 	[ -z "$$DIR" ]  && { echo "$(RED)[ERR]$(NC) Target dir required";    exit 1; }; \
+	PROJ=$$(echo "$$PROJ" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$$//'); \
+	[ -z "$$PROJ" ] && { echo "$(RED)[ERR]$(NC) Invalid project name after sanitization"; exit 1; }; \
+	PROJ_DB=$$(echo "$$PROJ" | tr '-' '_'); \
+	PROJ_UPPER=$$(echo "$$PROJ" | tr '[:lower:]' '[:upper:]' | tr '-' '_'); \
 	[ -d "$$DIR" ]  && { echo "$(RED)[ERR]$(NC) Target dir already exists: $$DIR"; exit 1; }; \
 	echo "$(BLUE)[INFO]$(NC) Copying scaffold to $$DIR..."; \
 	rsync -a --filter=':- .gitignore' \
-	         --exclude='.git' \
+	         --exclude='.git' --exclude='alloc/' \
 	         --exclude='LICENSE' --exclude='LICENSE.KKLAB' --exclude='NOTICE' --exclude='README.md' \
 	         ./ "$$DIR/"; \
+	echo "$(BLUE)[INFO]$(NC) Removing scaffold target from new project..."; \
+	sed -i.bak '/^# ─── Scaffold New Project/,$$d' "$$DIR/Makefile"; \
 	echo "$(BLUE)[INFO]$(NC) Replacing module name..."; \
 	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'go.mod' -o -name 'Makefile' \
-	         -o -name '*.md' -o -name '*.yaml' -o -name '*.yml' \) \
+	         -o -name '*.md' -o -name '*.yaml' -o -name '*.yml' -o -name '*.html' \) \
 	  -exec sed -i.bak "s|github.com/yetiz-org/goth-scaffold|$$MOD|g" {} +; \
-	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'Makefile' -o -name 'docker-compose*.yml' \) \
-	  -exec sed -i.bak "s|goth-scaffold|$$PROJ|g" {} +; \
-	echo "$(BLUE)[INFO]$(NC) Updating .gitignore binary names..."; \
-	sed -i.bak "s|/scaffold-darwin|/$$PROJ-darwin|g; s|/scaffold-amd64|/$$PROJ-amd64|g" "$$DIR/.gitignore"; \
+	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'Makefile' -o -name '*.md' \
+	         -o -name '*.yaml' -o -name '*.yml' -o -name '*.env' -o -name '*.html' \) \
+	  -exec sed -i.bak "s|goth-scaffold|$$PROJ|g; s|Goth Scaffold|$$PROJ|g; s|Goth-Scaffold|$$PROJ|g" {} +; \
+	sed -i.bak "s|^PROJECT_NAME := scaffold$$|PROJECT_NAME := $$PROJ|" "$$DIR/Makefile"; \
+	echo "$(BLUE)[INFO]$(NC) Replacing remaining scaffold identifiers..."; \
+	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'Makefile' -o -name '*.md' \
+	         -o -name '*.yaml' -o -name '*.yml' -o -name '*.env' -o -name '.gitignore' \
+	         -o -name '*.html' -o -name '*.json' -o -name '*.template' -o -name '*.sh' \) \
+	  -exec sed -i.bak "s|SCAFFOLD|$$PROJ_UPPER|g; s|Scaffold|$$PROJ|g; s|scaffold|$$PROJ|g" {} +; \
+	echo "$(BLUE)[INFO]$(NC) Fixing datastore names for database compatibility (hyphen → underscore)..."; \
+	LC_ALL=C find "$$DIR" -name 'config.yaml*' \
+	  -exec sed -i.bak \
+	    "s|database_name: \"$$PROJ\"|database_name: \"$$PROJ_DB\"|g; \
+	     s|cassandra_name: \"$$PROJ\"|cassandra_name: \"$$PROJ_DB\"|g; \
+	     s|redis_name: \"$$PROJ\"|redis_name: \"$$PROJ_DB\"|g" {} +; \
+	LC_ALL=C find "$$DIR/$(EVALUATE_DIR)/templates" -name 'defaults.env' \
+	  -exec sed -i.bak \
+	    "s|MYSQL_DATABASE=$$PROJ|MYSQL_DATABASE=$$PROJ_DB|; \
+	     s|DB_NAME=$$PROJ|DB_NAME=$$PROJ_DB|; \
+	     s|DB_NAME_YAML=$$PROJ|DB_NAME_YAML=$$PROJ_DB|; \
+	     s|CASSANDRA_KEYSPACE=$$PROJ|CASSANDRA_KEYSPACE=$$PROJ_DB|; \
+	     s|CASSANDRA_NAME_YAML=$$PROJ|CASSANDRA_NAME_YAML=$$PROJ_DB|; \
+	     s|REDIS_NAME_YAML=$$PROJ|REDIS_NAME_YAML=$$PROJ_DB|" {} +; \
 	find "$$DIR" -name '*.bak' -delete; \
-	cd "$$DIR" && git init -q && echo "$(GREEN)[OK]$(NC) New project ready at $$DIR"; \
-	echo "  Next: cd $$DIR && make local-env-setup && make local-env-start && make local-db-seed && make local-run"
+	echo "$(BLUE)[INFO]$(NC) Formatting Go source files..."; \
+	cd "$$DIR" && go fmt ./... && git init -q && echo "$(GREEN)[OK]$(NC) New project ready at $$DIR"; \
+	echo "  Next: cd $$DIR && make local-run"

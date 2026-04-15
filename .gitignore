@@ -1,6 +1,6 @@
 go-scaffold
 config.yaml*
-!evaluate/config.yaml.local.example
+!evaluate/templates/config.yaml.template
 # Go
 # Binaries for programs and plugins
 *.exe
@@ -90,7 +90,7 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 *.DS_Store
-/alloc/logs/
+alloc/logs/
 entities.json
 mempalace.yaml
 /.sessions/
@@ -98,4 +98,5 @@ mempalace.yaml
 /scaffold-darwin
 /scaffold-amd64
 /evaluate/_run/
+/evaluate/env/
 /.agents/scheduled_tasks.lock

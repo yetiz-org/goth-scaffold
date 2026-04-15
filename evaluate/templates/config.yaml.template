@@ -1,0 +1,32 @@
+datastore:
+  secret_path: "${SECRET_PATH}"
+  database_name: "${DB_NAME_YAML}"
+  cassandra_name: "${CASSANDRA_NAME_YAML}"
+  redis_name: "${REDIS_NAME_YAML}"
+app:
+  name: "${APP_NAME}"
+  domain_name: "${APP_DOMAIN}"
+  port: ${APP_PORT}
+  environment: "${APP_ENVIRONMENT}"
+  channel: "${APP_CHANNEL}"
+credentials:
+  secret_slack:
+    webhook: ""
+  recaptcha:
+    site_key: ""
+    secret_key: ""
+  gtm_id: ""
+http:
+  scheme: "${HTTP_SCHEME}"
+  session_type: "${HTTP_SESSION_TYPE}"
+  session_key: "${HTTP_SESSION_KEY}"
+  session_domain: "${HTTP_SESSION_DOMAIN}"
+  session_expire_time: ${HTTP_SESSION_EXPIRE_TIME}
+lang:
+  default: "${DEFAULT_LANGUAGE}"
+logger:
+  logger_path: "${LOG_PATH}"
+  log_level: "${LOG_LEVEL}"
+  stdio_capture: ${STDIO_CAPTURE}
+profiler:
+  enable: ${PROFILER_ENABLE}
