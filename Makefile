@@ -187,8 +187,9 @@ scaffold: ## Create a new project from this scaffold (interactive)
 	[ -z "$$DIR" ]  && { echo "$(RED)[ERR]$(NC) Target dir required";    exit 1; }; \
 	[ -d "$$DIR" ]  && { echo "$(RED)[ERR]$(NC) Target dir already exists: $$DIR"; exit 1; }; \
 	echo "$(BLUE)[INFO]$(NC) Copying scaffold to $$DIR..."; \
-	rsync -a --exclude='.git' --exclude='*.darwin' --exclude='*.amd64' \
-	         --exclude='evaluate/_run' --exclude='.sessions' --exclude='coverage.*' \
+	rsync -a --filter=':- .gitignore' \
+	         --exclude='.git' \
+	         --exclude='LICENSE' --exclude='LICENSE.KKLAB' --exclude='NOTICE' --exclude='README.md' \
 	         ./ "$$DIR/"; \
 	echo "$(BLUE)[INFO]$(NC) Replacing module name..."; \
 	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'go.mod' -o -name 'Makefile' \
@@ -196,10 +197,8 @@ scaffold: ## Create a new project from this scaffold (interactive)
 	  -exec sed -i.bak "s|github.com/yetiz-org/goth-scaffold|$$MOD|g" {} +; \
 	LC_ALL=C find "$$DIR" -type f \( -name '*.go' -o -name 'Makefile' -o -name 'docker-compose*.yml' \) \
 	  -exec sed -i.bak "s|goth-scaffold|$$PROJ|g" {} +; \
+	echo "$(BLUE)[INFO]$(NC) Updating .gitignore binary names..."; \
+	sed -i.bak "s|/scaffold-darwin|/$$PROJ-darwin|g; s|/scaffold-amd64|/$$PROJ-amd64|g" "$$DIR/.gitignore"; \
 	find "$$DIR" -name '*.bak' -delete; \
-	echo "$(BLUE)[INFO]$(NC) Creating AI agent symlinks..."; \
-	ln -s .agents "$$DIR/.claude"; \
-	ln -s .agents "$$DIR/.codex"; \
-	ln -s .agents "$$DIR/.gemini"; \
 	cd "$$DIR" && git init -q && echo "$(GREEN)[OK]$(NC) New project ready at $$DIR"; \
 	echo "  Next: cd $$DIR && make local-env-setup && make local-env-start && make local-db-seed && make local-run"
