@@ -2,17 +2,19 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yetiz-org/asynq"
 	"github.com/yetiz-org/gone/erresponse"
 	"github.com/yetiz-org/gone/ghttp"
 	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/components/slack"
+	"github.com/yetiz-org/goth-scaffold/app/conf"
 	"github.com/yetiz-org/goth-scaffold/app/connector/redis"
 	"github.com/yetiz-org/goth-scaffold/app/worker/internal"
 )
@@ -25,6 +27,8 @@ var (
 	client           *asynq.Client
 	inspector        *asynq.Inspector
 	scheduler        *asynq.Scheduler
+	handlerRegistry  = map[string]internal.Handler{}
+	shuttingDown     atomic.Bool
 )
 
 // _ServeHandler wraps internal.Handler as asynq.Handler
@@ -41,83 +45,212 @@ func (t *_ServeHandler) _WrapError(err error) ghttp.ErrorResponse {
 	return erresponse.ServerErrorCrossServiceOperationWithFormat("%v", err)
 }
 
-func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
-	executionContext := make(map[string]any)
-	taskInfo := internal.NewTaskInfo(task.Type(), nil, task.ResultWriter())
-	if err := json.Unmarshal(task.Payload(), &taskInfo.Payload); err != nil {
-		kklogger.WarnJ("worker:Service.ProcessTask#unmarshal!failed", err.Error())
-		taskInfo.Payload = nil
+func _isCanceledByShutdown(ctx context.Context, err error) bool {
+	if !shuttingDown.Load() {
+		return false
 	}
 
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	if ctx != nil && errors.Is(ctx.Err(), context.Canceled) {
+		return true
+	}
+
+	return false
+}
+
+func _notifyTaskCanceledByShutdown(taskType string, stage string, err error) {
+	hostname, _ := os.Hostname()
+
+	notification := "[Worker Shutdown] Task canceled before completion\n"
+	notification += fmt.Sprintf("- env=%s\n", conf.Config().App.Environment.Lower())
+	notification += fmt.Sprintf("- host=%s\n", hostname)
+	notification += fmt.Sprintf("- task=%s\n", taskType)
+	notification += fmt.Sprintf("- stage=%s\n", stage)
+	notification += fmt.Sprintf("- error=%s", err.Error())
+
+	webhookURL := conf.Config().Credentials.SecretSlack.Webhook
+	if sendErr := slack.NewClient(webhookURL).SendWithTimeout(notification, 2*time.Second); sendErr != nil {
+		if errors.Is(sendErr, slack.ErrWebhookNotConfigured) {
+			kklogger.WarnJ("worker:Service.notifyTaskCanceledByShutdown#config!missing_webhook", "Slack webhook URL not configured")
+			return
+		}
+
+		kklogger.ErrorJ("worker:Service.notifyTaskCanceledByShutdown#request!failed", sendErr.Error())
+		return
+	}
+}
+
+func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
+	executionContext := make(map[string]any)
+
+	// Use handler.Payload() to get an empty instance and decode into it
+	payload := t.handler.Payload()
+	if err := payload.Decode(string(task.Payload())); err != nil {
+		kklogger.WarnJ("worker:Service.ProcessTask#decode!failed", err.Error())
+	}
+
+	taskInfo := internal.NewTaskInfo(task.Type(), payload, task.ResultWriter())
+
 	if err := t.handler.Before(ctx, taskInfo, executionContext); err != nil {
-		kklogger.ErrorJ("worker:Service.ProcessTask#before!failed", err.Error())
+		if _isCanceledByShutdown(ctx, err) {
+			kklogger.WarnJ("worker:Service.ProcessTask#before!canceled_by_shutdown", fmt.Sprintf("task_type=%s error=%s", task.Type(), err.Error()))
+			_notifyTaskCanceledByShutdown(task.Type(), "before", err)
+		} else {
+			kklogger.ErrorJ("worker:Service.ProcessTask#before!failed", err.Error())
+		}
+
 		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
 	if err := t.handler.Run(ctx, taskInfo, executionContext); err != nil {
-		kklogger.ErrorJ("worker:Service.ProcessTask#run!failed", err.Error())
+		if _isCanceledByShutdown(ctx, err) {
+			kklogger.WarnJ("worker:Service.ProcessTask#run!canceled_by_shutdown", fmt.Sprintf("task_type=%s error=%s", task.Type(), err.Error()))
+			_notifyTaskCanceledByShutdown(task.Type(), "run", err)
+		} else {
+			kklogger.ErrorJ("worker:Service.ProcessTask#run!failed", err.Error())
+		}
+
 		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
 	if err := t.handler.After(ctx, taskInfo, executionContext); err != nil {
-		kklogger.ErrorJ("worker:Service.ProcessTask#after!failed", err.Error())
+		if _isCanceledByShutdown(ctx, err) {
+			kklogger.WarnJ("worker:Service.ProcessTask#after!canceled_by_shutdown", fmt.Sprintf("task_type=%s error=%s", task.Type(), err.Error()))
+			_notifyTaskCanceledByShutdown(task.Type(), "after", err)
+		} else {
+			kklogger.ErrorJ("worker:Service.ProcessTask#after!failed", err.Error())
+		}
+
 		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
+	taskInfo.FlushResult()
 	return nil
 }
 
-// Register registers a task handler
-func Register(pattern string, handler internal.Handler) {
-	if pattern == "" {
-		pattern = handler.Name()
-	}
-
+// Register registers a task handler. The handler's Name() is used as the pattern.
+func Register(handler internal.Handler) {
+	pattern := handler.Name()
+	handlerRegistry[pattern] = handler
 	serveMux.Handle(pattern, &_ServeHandler{handler: handler})
 }
 
-// RegisterSchedule registers a single cron task
+// RegisterSchedule registers a cron task.
+// Options are automatically sourced from the handlerRegistry (including Retention).
 func RegisterSchedule(scheduler *asynq.Scheduler, cronSpec string, task *asynq.Task) string {
-	entryID, _ := scheduler.Register(cronSpec, task)
+	var opts []asynq.Option
+
+	if handler, ok := handlerRegistry[task.Type()]; ok {
+		opts = handlerToAsynqOptions(handler)
+	}
+
+	entryID, _ := scheduler.Register(cronSpec, task, opts...)
 	return entryID
 }
 
-// Submit enqueues a task
+// mergeOptions merges options; submitOpts take precedence over handlerOpts.
+func mergeOptions(handlerOpts, submitOpts []asynq.Option) []asynq.Option {
+	var result []asynq.Option
+	result = append(result, handlerOpts...)
+	result = append(result, submitOpts...)
+	return result
+}
+
+// Submit enqueues a task; caller opts override handler defaults.
 func Submit(task *asynq.Task, opts ...asynq.Option) (*TaskFuture, error) {
-	if taskInfo, err := client.Enqueue(task, opts...); err != nil {
+	var handlerOpts []asynq.Option
+
+	if handler, ok := handlerRegistry[task.Type()]; ok {
+		handlerOpts = handlerToAsynqOptions(handler)
+	}
+
+	finalOpts := mergeOptions(handlerOpts, opts)
+
+	if taskInfo, err := client.Enqueue(task, finalOpts...); err != nil {
 		return nil, err
 	} else {
 		return NewTaskFuture(Inspector(), taskInfo), nil
 	}
 }
 
-// SubmitUnique enqueues a unique task
+// SubmitCritical enqueues a task into the critical queue.
+func SubmitCritical(task *asynq.Task, opts ...asynq.Option) (*TaskFuture, error) {
+	return Submit(task, append(opts, asynq.Queue("critical"))...)
+}
+
+// SubmitUnique enqueues a task with deduplication.
 func SubmitUnique(task *asynq.Task, uniqueTTL time.Duration, opts ...asynq.Option) (*TaskFuture, error) {
-	if taskInfo, err := client.Enqueue(task, append(opts, asynq.Unique(uniqueTTL))...); err != nil {
-		return nil, err
-	} else {
-		return NewTaskFuture(Inspector(), taskInfo), nil
-	}
+	return Submit(task, append(opts, asynq.Unique(uniqueTTL))...)
 }
 
-// Execute runs a task directly (without enqueue)
+// handlerToAsynqOptions converts Handler method values to asynq.Option slice.
+func handlerToAsynqOptions(handler internal.Handler) []asynq.Option {
+	var opts []asynq.Option
+
+	if handler.Retention() > 0 {
+		opts = append(opts, asynq.Retention(handler.Retention()))
+	}
+
+	if handler.UniqueTTL() > 0 {
+		opts = append(opts, asynq.Unique(handler.UniqueTTL()))
+	}
+
+	if handler.TaskID() != "" {
+		opts = append(opts, asynq.TaskID(handler.TaskID()))
+	}
+
+	if handler.Timeout() > 0 {
+		opts = append(opts, asynq.Timeout(handler.Timeout()))
+	}
+
+	if handler.Queue() != "" {
+		opts = append(opts, asynq.Queue(handler.Queue()))
+	}
+
+	if handler.MaxRetry() >= 0 {
+		opts = append(opts, asynq.MaxRetry(handler.MaxRetry()))
+	}
+
+	if handler.Group() != "" {
+		opts = append(opts, asynq.Group(handler.Group()))
+	}
+
+	return opts
+}
+
+// GetRegisteredHandlers returns all registered handlers (for API introspection).
+func GetRegisteredHandlers() map[string]internal.Handler {
+	return handlerRegistry
+}
+
+// Execute runs a task directly without enqueuing.
 func Execute(ctx context.Context, task *asynq.Task) error {
+	if handler, ok := handlerRegistry[task.Type()]; ok {
+		if handler.Timeout() > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, handler.Timeout())
+			defer cancel()
+		}
+	}
+
 	return serveMux.ProcessTask(ctx, task)
 }
 
-// Inspector returns task inspector
+// Inspector returns the task inspector.
 func Inspector() *asynq.Inspector {
 	return inspector
 }
 
-// Scheduler returns task scheduler
+// Scheduler returns the task scheduler.
 func Scheduler() *asynq.Scheduler {
 	return scheduler
 }
 
-// StartClient starts Client and Inspector
+// StartClient starts Client and Inspector, and injects the submitter into internal package.
 func StartClient(namespace string) {
-	// Check if already started
 	if client != nil || inspector != nil {
 		kklogger.WarnJ("worker:StartClient#already!started", "client already started")
 		return
@@ -126,10 +259,14 @@ func StartClient(namespace string) {
 	redisAddr := fmt.Sprintf("%s:%d", redis.Instance().Master().Meta().Host, redis.Instance().Master().Meta().Port)
 	client = asynq.NewClientWithNamespace(asynq.RedisClientOpt{Addr: redisAddr}, namespace)
 	inspector = asynq.NewInspectorWithNamespace(asynq.RedisClientOpt{Addr: redisAddr}, namespace)
+	internal.SetSubmitter(func(task *asynq.Task, opts ...asynq.Option) error {
+		_, err := Submit(task, opts...)
+		return err
+	})
 	kklogger.InfoJ("worker:StartClient#started", fmt.Sprintf("namespace=%s", namespace))
 }
 
-// StopClient stops Client and Inspector
+// StopClient stops Client and Inspector.
 func StopClient() {
 	if client != nil {
 		_ = client.Close()
@@ -144,8 +281,10 @@ func StopClient() {
 	}
 }
 
-// RegisterService initializes service (without starting servers)
-func RegisterService(namespace string) {
+// RegisterService initializes service without starting servers.
+// registerTasks registers all task handlers; registerScheduledTasks registers all cron tasks.
+// Both functions are injected from outside to avoid worker package depending on tasks package directly.
+func RegisterService(namespace string, registerTasks func(), registerScheduledTasks func(*asynq.Scheduler) []string) {
 	redisAddr := fmt.Sprintf("%s:%d", redis.Instance().Master().Meta().Host, redis.Instance().Master().Meta().Port)
 	scheduler = asynq.NewSchedulerWithNamespace(
 		asynq.RedisClientOpt{Addr: redisAddr},
@@ -157,34 +296,32 @@ func RegisterService(namespace string) {
 		},
 	)
 
-	_RegisterTasks() // Register all tasks
-	// Create scheduler manager (with distributed lock)
+	// Register all business tasks (injected from outside)
+	registerTasks()
+
+	// Create scheduler manager with distributed lock
 	schedulerManager = _NewSingleInstanceManager(namespace, "scheduler",
 		&_SchedulerRunner{
 			scheduler:    scheduler,
-			registerFunc: _RegisterScheduledTasks,
+			registerFunc: registerScheduledTasks,
 		})
 
-	// Start scheduler manager
 	schedulerManager.Start()
 }
 
 func UnRegisterService() {
-	// Stop scheduler manager
 	if schedulerManager != nil {
 		schedulerManager.Stop()
 		schedulerManager = nil
 	}
 
-	// Clear scheduler reference
 	if scheduler != nil {
 		scheduler = nil
 	}
 }
 
-// StartService starts worker service
+// StartService starts the worker servers.
 func StartService(namespace string) {
-	// Check if already started
 	if len(srvList) > 0 || len(singleSrvList) > 0 {
 		kklogger.WarnJ("worker:StartService#already!started", "service already started")
 		return
@@ -192,7 +329,6 @@ func StartService(namespace string) {
 
 	redisAddr := fmt.Sprintf("%s:%d", redis.Instance().Master().Meta().Host, redis.Instance().Master().Meta().Port)
 
-	// Concurrency
 	srvList = append(srvList, asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
@@ -208,20 +344,17 @@ func StartService(namespace string) {
 		},
 	))
 
-	// Single
 	srvList = append(srvList, asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{Concurrency: 1, Queues: map[string]int{"emails": 1}, Namespace: namespace, Logger: &_WorkerLogger{}},
 	))
 
-	// Start normal srv
 	for _, srv := range srvList {
 		if err := srv.Start(serveMux); err != nil {
 			panic(err)
 		}
 	}
 
-	// Single server with distributed lock
 	singleSrvList = append(singleSrvList, _NewSingleInstanceManager(namespace, "unique",
 		&_ServerRunner{
 			server: asynq.NewServer(
@@ -236,18 +369,12 @@ func StartService(namespace string) {
 	}
 }
 
-// StopService stops worker service
+// StopService stops all worker servers.
 func StopService() {
+	shuttingDown.Store(true)
+
 	for _, srv := range singleSrvList {
 		srv.Stop()
-		//
-		// worker.Submit(task)
-		//
-		//
-		//
-		//
-		//
-		//
 	}
 
 	for _, srv := range srvList {
@@ -255,21 +382,20 @@ func StopService() {
 	}
 }
 
-// _WorkerLogger worker specific logger
+// _WorkerLogger is the worker-specific logger adapter.
 type _WorkerLogger struct {
 	kklogger.DefaultLoggerHook
 }
 
-func (l *_WorkerLogger) Fatal(args ...interface{}) {
-}
+func (l *_WorkerLogger) Fatal(args ...any) {}
 
-// _InstanceRunner defines a runner which is managed as a single instance
+// _InstanceRunner defines a component that can be managed as a single instance.
 type _InstanceRunner interface {
 	Start() error
 	Shutdown()
 }
 
-// _ServerRunner implements server runner
+// _ServerRunner wraps asynq.Server as _InstanceRunner.
 type _ServerRunner struct {
 	server   *asynq.Server
 	serveMux *asynq.ServeMux
@@ -283,15 +409,15 @@ func (r *_ServerRunner) Shutdown() {
 	r.server.Shutdown()
 }
 
-// _SchedulerRunner implements scheduler runner
+// _SchedulerRunner wraps asynq.Scheduler as _InstanceRunner.
 type _SchedulerRunner struct {
 	scheduler    *asynq.Scheduler
-	registerFunc func(*asynq.Scheduler) []string // Register function and return entry IDs
+	registerFunc func(*asynq.Scheduler) []string
 	entryIDs     []string
 	ctx          context.Context
 	cancel       context.CancelFunc
 	done         chan error
-	running      bool // Flag scheduler running state
+	running      bool
 	mu           sync.Mutex
 }
 
@@ -299,13 +425,11 @@ func (r *_SchedulerRunner) Start() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Call register function to register all scheduled tasks
 	if r.registerFunc != nil {
 		r.entryIDs = r.registerFunc(r.scheduler)
 		kklogger.InfoJ("worker:SchedulerRunner.Start#register!success", fmt.Sprintf("registered %d scheduled tasks", len(r.entryIDs)))
 	}
 
-	// Start scheduler (only when lock acquired)
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.done = make(chan error, 1)
 	r.running = true
@@ -323,16 +447,15 @@ func (r *_SchedulerRunner) Shutdown() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// 1. Unregister all entries from scheduler
 	for _, entryID := range r.entryIDs {
 		if err := r.scheduler.Unregister(entryID); err != nil {
 			kklogger.WarnJ("worker:SchedulerRunner.Shutdown#unregister!failed", fmt.Sprintf("entryID=%s error=%s", entryID, err.Error()))
 		}
 	}
+
 	r.entryIDs = nil
 	kklogger.InfoJ("worker:SchedulerRunner.Shutdown#unregister!success", "unregistered all scheduled tasks")
 
-	// 2. Delete all scheduled tasks from Redis
 	if inspector != nil {
 		queues, err := inspector.Queues()
 		if err != nil {
@@ -340,7 +463,6 @@ func (r *_SchedulerRunner) Shutdown() {
 		} else {
 			totalDeleted := 0
 			for _, queue := range queues {
-				// Delete all scheduled tasks from the queue
 				deleted, err := inspector.DeleteAllScheduledTasks(queue)
 				if err != nil {
 					kklogger.ErrorJ("worker:SchedulerRunner.Shutdown#delete_scheduled!failed", fmt.Sprintf("queue=%s error=%s", queue, err.Error()))
@@ -352,7 +474,6 @@ func (r *_SchedulerRunner) Shutdown() {
 		}
 	}
 
-	// 3. Stop scheduler (only if running)
 	if r.running {
 		kklogger.InfoJ("worker:SchedulerRunner.Shutdown#shutdown!started", "stopping scheduler")
 		r.scheduler.Shutdown()
@@ -366,7 +487,7 @@ func (r *_SchedulerRunner) Shutdown() {
 	}
 }
 
-// _SingleInstanceManager manages a distributed lock for single instance runner
+// _SingleInstanceManager manages a distributed lock for a single-instance runner.
 type _SingleInstanceManager struct {
 	lockKey  string
 	hostname string
@@ -406,12 +527,11 @@ func (m *_SingleInstanceManager) Stop() {
 }
 
 func (m *_SingleInstanceManager) manage() {
-	// Try to acquire lock immediately
 	m.mu.Lock()
 	m.tryAcquire()
 	m.mu.Unlock()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	defer close(m.done)
 
@@ -439,7 +559,7 @@ func (m *_SingleInstanceManager) tryAcquire() {
 	}
 
 	if result.GetInt64() == 1 {
-		expireResult := redis.Master().SetExpire(m.lockKey, m.hostname, 6)
+		expireResult := redis.Master().SetExpire(m.lockKey, m.hostname, 15)
 		if expireResult.Error != nil {
 			kklogger.ErrorJ("worker:SingleInstanceManager.tryAcquire#expire!failed", expireResult.Error.Error())
 			redis.Master().Delete(m.lockKey)
@@ -466,7 +586,7 @@ func (m *_SingleInstanceManager) keepAlive() {
 		return
 	}
 
-	result := redis.Master().SetExpire(m.lockKey, m.hostname, 6)
+	result := redis.Master().SetExpire(m.lockKey, m.hostname, 15)
 	if result.Error != nil {
 		kklogger.ErrorJ("worker:SingleInstanceManager.keepAlive#renew!failed", result.Error.Error())
 		m.acquired = false

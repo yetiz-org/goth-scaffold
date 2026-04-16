@@ -74,6 +74,14 @@ func TestMain(m *testing.M) {
 	os.Args = []string{"scaffold", "-c", absConfigPath, "-m", "default"}
 	app.FlagParse()
 
+	// Resolve secret path to absolute so connectors can find secrets from the test binary.
+	// Normally set by daemon 01_setup_environment; here we replicate that for the test process.
+	secretPath := conf.Config().DataStore.SecretPath
+	if !filepath.IsAbs(secretPath) {
+		secretPath = filepath.Join(testutils.GetProjectRoot(), secretPath)
+	}
+	os.Setenv("GOTH_SECRET_PATH", secretPath)
+
 	fmt.Printf("  - Loaded config: %s\n", conf.ConfigPath)
 
 	// 3. Skip server start if TEST_BASE_URL is already set (external server)

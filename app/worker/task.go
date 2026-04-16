@@ -1,24 +1,26 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/yetiz-org/asynq"
-	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/worker/internal"
 )
 
-func NewTask(typename string, payload any, opts ...asynq.Option) *asynq.Task {
-	var encoded []byte
-	if payload != nil {
-		var err error
-		encoded, err = json.Marshal(payload)
-		if err != nil {
-			kklogger.ErrorJ("worker:NewTask#marshal!failed", err.Error())
-		}
+// GetPayloadByTaskname returns an empty Payload instance for the given task name.
+// Used by external callers that need to decode a task's payload.
+func GetPayloadByTaskname(taskname string) internal.Payload {
+	if handler, ok := handlerRegistry[taskname]; ok {
+		return handler.Payload()
 	}
 
-	return asynq.NewTask(typename, encoded, opts...)
+	return &internal.BasePayload{}
+}
+
+// NewTask creates an asynq.Task from a task name and Payload.
+// Pass nil payload when no payload is needed.
+func NewTask(taskname string, payload internal.Payload) *asynq.Task {
+	return internal.NewTask(taskname, payload)
 }
 
 type TaskFuture struct {

@@ -21,6 +21,10 @@ func TestDatabaseConnectivity(t *testing.T) {
 		t.Skip("database not configured — skipping (set datastore.database_name to enable)")
 	}
 
+	if database.Instance() == nil {
+		t.Skip("database not initialized — skipping (secret file not found; run make local-env-start)")
+	}
+
 	_ = testutils.NewTestContext(t)
 
 	if err := database.HealthCheck(); err != nil {
@@ -39,6 +43,10 @@ func TestRedisConnectivity(t *testing.T) {
 
 	if !redis.Enabled() {
 		t.Skip("redis not configured — skipping (set datastore.redis_name to enable)")
+	}
+
+	if redis.Instance() == nil {
+		t.Skip("redis not initialized — skipping (secret file not found; run make local-env-start)")
 	}
 
 	_ = testutils.NewTestContext(t)

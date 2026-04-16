@@ -32,6 +32,10 @@ func Instance() *datastore.Redis {
 }
 
 func HealthCheck() error {
+	if Instance() == nil {
+		return fmt.Errorf("redis not initialized: check secret_path and redis_name configuration")
+	}
+
 	if Master().Ping().Error != nil || Slave().Ping().Error != nil {
 		return fmt.Errorf("can't connect to redis")
 	}

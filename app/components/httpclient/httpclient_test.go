@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewRequestReturnsNilOnInvalidURL(t *testing.T) {
@@ -72,5 +73,34 @@ func TestDoReturnsResponseWithoutLogging(t *testing.T) {
 
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("expected status 201, got %d", resp.StatusCode)
+	}
+}
+
+func TestDefaultClientHasTimeout(t *testing.T) {
+	if _client.Timeout <= 0 {
+		t.Errorf("default HTTP client must have a positive timeout, got %v", _client.Timeout)
+	}
+}
+
+func TestDoTimesOutOnSlowServer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// temporarily reduce timeout so the test completes quickly
+	original := _client
+	_client = &http.Client{Timeout: 50 * time.Millisecond}
+	defer func() { _client = original }()
+
+	req := NewRequest("GET", server.URL, nil)
+	if req == nil {
+		t.Fatal("NewRequest returned nil")
+	}
+
+	_, err := Do(req)
+	if err == nil {
+		t.Fatal("expected a timeout error, got nil")
 	}
 }

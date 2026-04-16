@@ -5,8 +5,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/components/httpclient"
 	"github.com/yetiz-org/goth-scaffold/app/conf"
 )
 
@@ -27,7 +29,15 @@ func Verify(token string) bool {
 		"response": {token},
 	}
 
-	httpResp, err := http.PostForm(verifyUrl, params)
+	req, err := http.NewRequest("POST", verifyUrl, strings.NewReader(params.Encode()))
+	if err != nil {
+		kklogger.ErrorJ("recaptcha:Verify#request!create_fail", err.Error())
+		return false
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	httpResp, err := httpclient.Do(req)
 	if err != nil {
 		kklogger.ErrorJ("recaptcha:Verify#google!request_fail", err.Error())
 		return false

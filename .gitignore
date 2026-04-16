@@ -100,3 +100,4 @@ mempalace.yaml
 /evaluate/_run/
 /evaluate/env/
 /.agents/scheduled_tasks.lock
+/.planning/

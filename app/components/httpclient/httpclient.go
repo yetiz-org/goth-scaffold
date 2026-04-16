@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/yetiz-org/gone/ghttp"
 	buf "github.com/yetiz-org/goth-bytebuf"
@@ -16,7 +17,15 @@ const (
 	maxLogBodyBytes        = 204800
 	maxLogRequestBodyBytes = 200000
 	maxLogBodyTrimBytes    = 102400
+
+	// DefaultTimeout is the timeout applied to every outgoing HTTP request.
+	// It covers dial, TLS handshake, wait for first byte, and full response read.
+	DefaultTimeout = 30 * time.Second
 )
+
+// _client is the shared HTTP client used by Do and DoAndLog.
+// Tests in this package may replace it temporarily to assert timeout behaviour.
+var _client = &http.Client{Timeout: DefaultTimeout}
 
 func NewRequest(method string, url string, body io.Reader) *http.Request {
 	if req, err := http.NewRequest(method, url, body); err != nil {
@@ -56,7 +65,7 @@ func _do(req *http.Request, log bool) (*http.Response, error) {
 		req.Body = bb
 	}
 
-	response, err := http.DefaultClient.Do(req)
+	response, err := _client.Do(req)
 
 	if log {
 		logStruct.Request.BodyLength = bbl
