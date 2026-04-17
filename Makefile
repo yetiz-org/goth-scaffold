@@ -7,6 +7,12 @@ COMPOSE_FILE := $(EVALUATE_DIR)/docker-compose.yml
 COMPOSE      ?= docker compose
 CONFIG_FILE  ?= $(EVALUATE_DIR)/config.yaml.local
 
+# Database adapter selection — drives template rendering, docker-compose
+# profile, CLI tools, and reseed behaviour. Override per-invocation, e.g.
+#   DB_ADAPTER=postgres make local-db-seed
+DB_ADAPTER   ?= mysql
+COMPOSE_BASE := $(COMPOSE) -f $(COMPOSE_FILE) --profile $(DB_ADAPTER)
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
     BINARY_NAME := $(PROJECT_NAME)-darwin
@@ -34,33 +40,33 @@ help: ## Show this help
 
 # ─── Local Environment (Docker Compose) ──────────────────────────────────────
 .PHONY: local-env-setup
-local-env-setup: ## Generate config.yaml.local and env credentials from templates (idempotent)
-	@bash $(EVALUATE_DIR)/scripts/generate-configs.sh
+local-env-setup: ## Generate config.yaml.local and env credentials from templates (idempotent; honours DB_ADAPTER)
+	@DB_ADAPTER=$(DB_ADAPTER) bash $(EVALUATE_DIR)/scripts/generate-configs.sh
 
 .PHONY: local-env-start
-local-env-start: ## Start all Docker services
-	@echo "$(BLUE)[INFO]$(NC) Starting services..."
-	$(COMPOSE) -f $(COMPOSE_FILE) up -d
+local-env-start: ## Start Docker services for the active DB_ADAPTER profile
+	@echo "$(BLUE)[INFO]$(NC) Starting services (adapter=$(DB_ADAPTER))..."
+	$(COMPOSE_BASE) up -d
 	@echo "$(GREEN)[OK]$(NC) Services started"
 
 .PHONY: local-env-status
 local-env-status: ## Show Docker service status
-	$(COMPOSE) -f $(COMPOSE_FILE) ps
+	$(COMPOSE_BASE) ps
 
 .PHONY: local-env-logs
 local-env-logs: ## Follow Docker service logs (Ctrl-C to exit)
-	$(COMPOSE) -f $(COMPOSE_FILE) logs -f
+	$(COMPOSE_BASE) logs -f
 
 .PHONY: local-env-stop
-local-env-stop: ## Stop all Docker services
-	@echo "$(BLUE)[INFO]$(NC) Stopping services..."
-	$(COMPOSE) -f $(COMPOSE_FILE) down
+local-env-stop: ## Stop Docker services for the active DB_ADAPTER profile
+	@echo "$(BLUE)[INFO]$(NC) Stopping services (adapter=$(DB_ADAPTER))..."
+	$(COMPOSE_BASE) down
 	@echo "$(GREEN)[OK]$(NC) Services stopped"
 
 .PHONY: local-env-clean
-local-env-clean: ## Destroy all local data volumes and config (destructive)
-	@echo "$(YELLOW)[WARN]$(NC) Destroying all local data (MySQL / Redis / Cassandra)..."
-	$(COMPOSE) -f $(COMPOSE_FILE) down -v
+local-env-clean: ## Destroy all local data volumes and config (destructive; both adapters)
+	@echo "$(YELLOW)[WARN]$(NC) Destroying all local data (MySQL / Postgres / Redis / Cassandra)..."
+	$(COMPOSE) -f $(COMPOSE_FILE) --profile mysql --profile postgres down -v
 	@if [ -d "$(EVALUATE_DIR)/_run" ]; then \
 		docker run --user root --rm -v "$$(pwd)/$(EVALUATE_DIR)/_run:/data" redis:7-alpine \
 			sh -c "rm -rf /data/*" 2>/dev/null || true; \
@@ -71,8 +77,12 @@ local-env-clean: ## Destroy all local data volumes and config (destructive)
 
 # ─── Service Connections ──────────────────────────────────────────────────────
 .PHONY: local-database-connect
-local-database-connect: ## Open MySQL CLI
+local-database-connect: ## Open database CLI for the active DB_ADAPTER
+ifeq ($(DB_ADAPTER),postgres)
+	docker exec -it $(PROJECT_NAME)-postgres psql -U postgres -d $(PROJECT_DB)
+else
 	docker exec -it $(PROJECT_NAME)-mysql mysql -u root -proot
+endif
 
 .PHONY: local-redis-connect
 local-redis-connect: ## Open Redis CLI
@@ -102,12 +112,21 @@ clean: ## Remove compiled binaries
 
 # ─── Run ─────────────────────────────────────────────────────────────────────
 .PHONY: local-run
-local-run: local-env-setup local-env-start _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Build and start API on :8080 (default mode)
-	@echo "$(BLUE)[INFO]$(NC) Starting API on :8080 (mode=default)"
+local-run: local-env-setup local-env-start _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Build and start API on :8080 (default mode)
+	@echo "$(BLUE)[INFO]$(NC) Starting API on :8080 (mode=default, adapter=$(DB_ADAPTER))"
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m default
 
 # ─── Service Health Wait ─────────────────────────────────────────────────────
-# Internal target: polls until MySQL is accepting connections (max 120 s).
+# Internal target: polls until the active database (MySQL or PostgreSQL) is
+# accepting connections (max 120 s). Dispatches on DB_ADAPTER.
+.PHONY: _local-wait-database
+_local-wait-database:
+ifeq ($(DB_ADAPTER),postgres)
+	@$(MAKE) --no-print-directory _local-wait-postgres
+else
+	@$(MAKE) --no-print-directory _local-wait-mysql
+endif
+
 .PHONY: _local-wait-mysql
 _local-wait-mysql:
 	@echo "$(BLUE)[INFO]$(NC) Waiting for MySQL..."
@@ -121,6 +140,20 @@ _local-wait-mysql:
 	done; \
 	printf "\n"; \
 	echo "$(RED)[ERR]$(NC) MySQL not ready after 120 s" && exit 1
+
+.PHONY: _local-wait-postgres
+_local-wait-postgres:
+	@echo "$(BLUE)[INFO]$(NC) Waiting for PostgreSQL..."
+	@elapsed=0; \
+	for i in $$(seq 1 60); do \
+		printf "\r$(BLUE)[INFO]$(NC) PostgreSQL check... %3ds / 120s  " $$elapsed; \
+		docker exec $(PROJECT_NAME)-postgres pg_isready -U postgres >/dev/null 2>&1 && \
+			printf "\n" && echo "$(GREEN)[OK]$(NC) PostgreSQL ready ($$elapsed s)" && exit 0; \
+		sleep 2; \
+		elapsed=$$((elapsed + 2)); \
+	done; \
+	printf "\n"; \
+	echo "$(RED)[ERR]$(NC) PostgreSQL not ready after 120 s" && exit 1
 
 # Internal target: polls until Cassandra is accepting CQL connections (max 180 s).
 .PHONY: _local-wait-cassandra
@@ -151,8 +184,8 @@ _local-init-cassandra:
 # Running `make local-env-clean && make local-db-seed` produces a clean, seeded DB.
 # Running `make local-db-reseed` drops and recreates the DB then migrates + seeds.
 .PHONY: local-db-migration
-local-db-migration: local-env-setup local-env-start _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Ensure env is up, then run database migrations
-	@echo "$(BLUE)[INFO]$(NC) Running migrations..."
+local-db-migration: local-env-setup local-env-start _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Ensure env is up, then run database migrations
+	@echo "$(BLUE)[INFO]$(NC) Running migrations (adapter=$(DB_ADAPTER))..."
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m db_migration
 	@echo "$(GREEN)[OK]$(NC) Migrations done"
 
@@ -163,10 +196,15 @@ local-db-seed: local-db-migration ## Run migrations then seed data
 	@echo "$(GREEN)[OK]$(NC) Seeds done"
 
 .PHONY: local-db-reseed
-local-db-reseed: _local-wait-mysql _local-wait-cassandra _local-init-cassandra build ## Drop and recreate MySQL database, then re-run migrations and seeds (services must be running)
-	@echo "$(YELLOW)[WARN]$(NC) Dropping and recreating database $(PROJECT_DB)..."
+local-db-reseed: _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Drop and recreate the active database, then re-run migrations and seeds
+	@echo "$(YELLOW)[WARN]$(NC) Dropping and recreating database $(PROJECT_DB) (adapter=$(DB_ADAPTER))..."
+ifeq ($(DB_ADAPTER),postgres)
+	@docker exec $(PROJECT_NAME)-postgres psql -U postgres -d postgres \
+		-c "DROP DATABASE IF EXISTS $(PROJECT_DB); CREATE DATABASE $(PROJECT_DB);" 2>/dev/null
+else
 	@docker exec $(PROJECT_NAME)-mysql mysql -u root -proot \
 		-e "DROP DATABASE IF EXISTS $(PROJECT_DB); CREATE DATABASE $(PROJECT_DB);" 2>/dev/null
+endif
 	@echo "$(BLUE)[INFO]$(NC) Running migrations..."
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m db_migration
 	@echo "$(BLUE)[INFO]$(NC) Running seeds..."

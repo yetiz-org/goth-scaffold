@@ -148,9 +148,9 @@ func TestDecryptReturnsErrorOnTamperedCiphertext(t *testing.T) {
 func TestKeyTypeEncryptIdDecryptIdRoundTrip(t *testing.T) {
 	resetCryptoGlobalsForTest(t)
 
-	ids := []uint64{0, 1, 42, math.MaxUint64}
+	ids := []int64{math.MinInt64, -1, 0, 1, 42, math.MaxInt64}
 	for _, id := range ids {
-		t.Run("id_"+strconv.FormatUint(id, 10), func(t *testing.T) {
+		t.Run("id_"+strconv.FormatInt(id, 10), func(t *testing.T) {
 			encrypted, err := testKeyTypeBaz.EncryptId(id)
 			if err != nil {
 				t.Fatalf("EncryptId() error = %v", err)
@@ -189,7 +189,7 @@ func TestKeyTypeDecryptIdReturnsErrorWhenDecryptedLengthNotEight(t *testing.T) {
 func TestEncryptKeyIdDecryptKeyIdRoundTrip(t *testing.T) {
 	resetCryptoGlobalsForTest(t)
 
-	type myID uint64
+	type myID int64
 	id := myID(12345)
 
 	encrypted, err := EncryptKeyId(testKeyTypeFoo, id)
@@ -212,7 +212,7 @@ func TestEncryptedKeyIdReturnsEmptyOnError(t *testing.T) {
 
 	// EncryptedKeyId is a best-effort function; any valid id should succeed
 	// We just verify it returns a non-empty string for a valid id
-	result := EncryptedKeyId(testKeyTypeFoo, uint64(1))
+	result := EncryptedKeyId(testKeyTypeFoo, int64(1))
 	if result == "" {
 		t.Fatal("EncryptedKeyId() returned empty string for valid id")
 	}

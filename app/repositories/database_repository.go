@@ -6,39 +6,18 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	kklogger "github.com/yetiz-org/goth-kklogger"
+	"github.com/yetiz-org/goth-scaffold/app/components/dialect"
 	"github.com/yetiz-org/goth-scaffold/app/models"
 	"gorm.io/gorm"
 )
 
+// quoteSQLIdentifier delegates to the active dialect so SQL identifiers are
+// quoted with backticks on MySQL and double quotes on PostgreSQL.
 func quoteSQLIdentifier(ident string) string {
-	if ident == "" {
-		return ident
-	}
-
-	if strings.Contains(ident, "`") {
-		return ident
-	}
-
-	for _, r := range ident {
-		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '.') {
-			return ident
-		}
-	}
-
-	parts := strings.Split(ident, ".")
-	for i, p := range parts {
-		if p == "" {
-			return ident
-		}
-		parts[i] = fmt.Sprintf("`%s`", p)
-	}
-
-	return strings.Join(parts, ".")
+	return dialect.Current().QuoteIdent(ident)
 }
 
 func _ApplyWhereConditions(tx *gorm.DB, conditions map[string]any) *gorm.DB {
@@ -504,7 +483,7 @@ func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, condit
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		createErr := tx.Create(entity).Error
 		if createErr != nil {
-			if isMySQLDuplicateKeyError(createErr) {
+			if dialect.Current().IsDuplicateKeyErr(createErr) {
 				requeryErr := _ApplyWhereConditions(tx, conditions).First(&existing).Error
 				if requeryErr != nil {
 					kklogger.ErrorJ("repo:DatabaseDefaultRepository.UpsertTx#query_after_dup!db_error", requeryErr.Error())
@@ -565,7 +544,7 @@ func (d *DatabaseDefaultRepository[K, T]) FirstOrCreateTx(tx *gorm.DB, entity T,
 
 	createErr := tx.Create(entity).Error
 	if createErr != nil {
-		if isMySQLDuplicateKeyError(createErr) {
+		if dialect.Current().IsDuplicateKeyErr(createErr) {
 			requeryErr := _ApplyWhereConditions(tx, conditions).First(entity).Error
 			if requeryErr == nil {
 				return false, nil
@@ -590,31 +569,14 @@ func (d *DatabaseDefaultRepository[K, T]) FirstOrCreateTx(tx *gorm.DB, entity T,
 	return true, nil
 }
 
-// IsMySQLLockNoWaitError reports whether err is MySQL ER_LOCK_NOWAIT (error 3572).
-func IsMySQLLockNoWaitError(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	return errors.As(err, &mysqlErr) && mysqlErr.Number == 3572
-}
-
-func isMySQLDuplicateKeyError(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+// IsLockNoWaitError reports whether err is a lock-not-available error on the
+// active dialect (MySQL 3572 / Postgres 55P03).
+func IsLockNoWaitError(err error) bool {
+	return dialect.Current().IsLockNoWaitErr(err)
 }
 
 func isRetryableError(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	if errors.As(err, &mysqlErr) {
-		switch mysqlErr.Number {
-		case 1213, 1205: // Deadlock, Lock wait timeout
-			return true
-		}
-	}
-
-	msg := err.Error()
-	return strings.Contains(msg, "Deadlock") ||
-		strings.Contains(msg, "deadlock") ||
-		strings.Contains(msg, "serialization_failure") ||
-		strings.Contains(msg, "Lock wait timeout")
+	return dialect.Current().IsRetryableErr(err)
 }
 
 // copyPrimaryKey copies the primary key value from src to dst.

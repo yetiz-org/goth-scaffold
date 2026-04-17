@@ -3,6 +3,10 @@
 # Usage: ./generate-configs.sh [--force]
 #   --force    Overwrite files that already exist.
 # All variables default to evaluate/templates/defaults.env; override by exporting env vars.
+#
+# Database adapter selection:
+#   Set DB_ADAPTER=mysql (default) or DB_ADAPTER=postgres before running.
+#   The script picks the matching database-secret.<adapter>.json.template.
 
 set -e
 
@@ -37,10 +41,39 @@ if [ ! -f "$DEFAULTS_FILE" ]; then
     exit 1
 fi
 
-# Load defaults, then allow env overrides already in the environment to win.
-set -a
-source "$DEFAULTS_FILE"
-set +a
+# Load defaults — external env values take precedence. We parse the file
+# line-by-line instead of `source`-ing it because plain `source` would
+# overwrite variables that the caller already exported (e.g. DB_ADAPTER).
+while IFS= read -r line || [ -n "$line" ]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    key="${key## }"; key="${key%% }"
+    val="${val%$'\r'}"
+    [[ -z "$key" ]] && continue
+    if [ -z "${!key+x}" ]; then
+        export "$key=$val"
+    fi
+done < "$DEFAULTS_FILE"
+
+DB_ADAPTER="${DB_ADAPTER:-mysql}"
+DB_ADAPTER=$(echo "$DB_ADAPTER" | tr '[:upper:]' '[:lower:]')
+
+case "$DB_ADAPTER" in
+    mysql|postgres) ;;
+    *)
+        echo -e "${RED}[ERR]${NC} Unsupported DB_ADAPTER=$DB_ADAPTER (expected 'mysql' or 'postgres')"
+        exit 1
+        ;;
+esac
+
+DB_SECRET_TEMPLATE="$TEMPLATES_DIR/database-secret.${DB_ADAPTER}.json.template"
+if [ ! -f "$DB_SECRET_TEMPLATE" ]; then
+    echo -e "${RED}[ERR]${NC} Database secret template not found: $DB_SECRET_TEMPLATE"
+    exit 1
+fi
+
+echo -e "${BLUE}[INFO]${NC} Using database adapter: ${GREEN}${DB_ADAPTER}${NC} (template: $(basename "$DB_SECRET_TEMPLATE"))"
 
 mkdir -p "$OUTPUT_ENV_DIR/database-${DB_NAME_YAML}"
 mkdir -p "$OUTPUT_ENV_DIR/redis-${REDIS_NAME_YAML}"
@@ -57,7 +90,7 @@ _generate() {
     echo -e "${GREEN}[OK]${NC} Generated $output"
 }
 
-_generate "$TEMPLATES_DIR/database-secret.json.template" \
+_generate "$DB_SECRET_TEMPLATE" \
           "$OUTPUT_ENV_DIR/database-${DB_NAME_YAML}/secret.json"
 _generate "$TEMPLATES_DIR/redis-secret.json.template" \
           "$OUTPUT_ENV_DIR/redis-${REDIS_NAME_YAML}/secret.json"

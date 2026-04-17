@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/yetiz-org/goth-scaffold/app/components/dialect"
 	"github.com/yetiz-org/goth-scaffold/app/models"
 	"gorm.io/gorm"
 )
@@ -72,11 +73,11 @@ func ValidateNode[T any](node Node, schema Schema[T]) error {
 		return nil
 
 	case *LogicalNode:
-		if err := ValidateNode(n.Left, schema); err != nil {
+		if err := ValidateNode[T](n.Left, schema); err != nil {
 			return err
 		}
 
-		return ValidateNode(n.Right, schema)
+		return ValidateNode[T](n.Right, schema)
 	}
 
 	return nil
@@ -128,7 +129,7 @@ func buildGORMScope[T any](node Node, sorts []SortField, schema Schema[T]) func(
 				dir = "DESC"
 			}
 
-			db = db.Order(fmt.Sprintf("`%s` %s", s.column, dir))
+			db = db.Order(fmt.Sprintf("%s %s", dialect.Current().QuoteIdent(s.column), dir))
 		}
 
 		return db
@@ -154,7 +155,7 @@ func collectDBConds[T any](node Node, schema Schema[T]) []dbCond {
 
 	case *LogicalNode:
 		if n.Op == LogicalAND {
-			return append(collectDBConds(n.Left, schema), collectDBConds(n.Right, schema)...)
+			return append(collectDBConds[T](n.Left, schema), collectDBConds[T](n.Right, schema)...)
 		}
 
 		// OR: only push when entire subtree is DB-level
@@ -177,8 +178,8 @@ func nodeToDBCond[T any](node Node, schema Schema[T]) (dbCond, bool) {
 		return leafToDBCond(n, schema)
 
 	case *LogicalNode:
-		left, lOK := nodeToDBCond(n.Left, schema)
-		right, rOK := nodeToDBCond(n.Right, schema)
+		left, lOK := nodeToDBCond[T](n.Left, schema)
+		right, rOK := nodeToDBCond[T](n.Right, schema)
 
 		if !lOK || !rOK {
 			return dbCond{}, false
@@ -222,7 +223,9 @@ func leafToDBCond[T any](n *ComparisonNode, schema Schema[T]) (dbCond, bool) {
 }
 
 func columnCond(col, op, val string, typ FieldType) (string, []any, error) {
-	q := fmt.Sprintf("`%s`", col)
+	d := dialect.Current()
+	q := d.QuoteIdent(col)
+	like := d.LikeOperator()
 
 	switch op {
 	case OpEq:
@@ -238,11 +241,11 @@ func columnCond(col, op, val string, typ FieldType) (string, []any, error) {
 	case OpLte:
 		return fmt.Sprintf("%s <= ?", q), []any{coerce(val, typ)}, nil
 	case OpPrefix:
-		return fmt.Sprintf("%s LIKE ?", q), []any{val + "%"}, nil
+		return fmt.Sprintf("%s %s ?", q, like), []any{val + "%"}, nil
 	case OpSuffix:
-		return fmt.Sprintf("%s LIKE ?", q), []any{"%" + val}, nil
+		return fmt.Sprintf("%s %s ?", q, like), []any{"%" + val}, nil
 	case OpLike:
-		return fmt.Sprintf("%s LIKE ?", q), []any{val}, nil
+		return fmt.Sprintf("%s %s ?", q, like), []any{val}, nil
 	default:
 		return "", nil, fmt.Errorf("queryfilter: unsupported operator %q for column field", op)
 	}
@@ -350,7 +353,7 @@ func hasMemFilter[T any](node Node, schema Schema[T]) bool {
 		def, ok := schema[n.Field]
 		return ok && def.FilterFn != nil
 	case *LogicalNode:
-		return hasMemFilter(n.Left, schema) || hasMemFilter(n.Right, schema)
+		return hasMemFilter[T](n.Left, schema) || hasMemFilter[T](n.Right, schema)
 	}
 
 	return false
@@ -389,8 +392,8 @@ func evalNode[T any](item T, node Node, schema Schema[T]) bool {
 		return def.FilterFn(item, n.Op, n.Value)
 
 	case *LogicalNode:
-		left := evalNode(item, n.Left, schema)
-		right := evalNode(item, n.Right, schema)
+		left := evalNode[T](item, n.Left, schema)
+		right := evalNode[T](item, n.Right, schema)
 
 		if n.Op == LogicalAND {
 			return left && right
