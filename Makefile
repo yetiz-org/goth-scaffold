@@ -218,6 +218,7 @@ scaffold: ## Create a new project from this scaffold (interactive)
 	         --exclude='.git' --exclude='alloc/' \
 	         --exclude='LICENSE' --exclude='LICENSE.KKLAB' --exclude='NOTICE' --exclude='README.md' \
 	         ./ "$$DIR/"; \
+	cp ./evaluate/templates/config.yaml.template "$$DIR/evaluate/templates/config.yaml.template"; \
 	echo "$(BLUE)[INFO]$(NC) Removing scaffold target from new project..."; \
 	sed -i.bak '/^# ─── Scaffold New Project/,$$d' "$$DIR/Makefile"; \
 	echo "$(BLUE)[INFO]$(NC) Replacing module name..."; \
