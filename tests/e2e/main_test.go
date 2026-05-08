@@ -16,6 +16,7 @@ Run with:
 	go test -v -count=1 ./tests/e2e/...
 
 Set SCAFFOLD_E2E_BINARY to skip the build step and use an existing binary.
+Set SCAFFOLD_E2E_CONFIG to run with a scoped generated config file.
 Set TEST_BASE_URL to skip starting a server and point at an already-running instance.
 */
 package e2e
@@ -114,7 +115,7 @@ func TestMain(m *testing.M) {
 			if testConfig.IsCI {
 				exitCode = 1
 			} else {
-				fmt.Printf("  Skipping E2E tests (non-CI: services not running — start with: make env-up)\n")
+				fmt.Printf("  Skipping E2E tests (non-CI: services not running — start with: make local-env-start)\n")
 				exitCode = 0
 			}
 			return

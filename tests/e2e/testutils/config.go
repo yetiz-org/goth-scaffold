@@ -22,7 +22,7 @@ var (
 )
 
 // GetTestConfig returns test configuration.
-// In CI it expects evaluate/config.yaml.ci; locally it uses evaluate/config.yaml.local.
+// In CI it expects evaluate/config.yaml.ci; locally it uses the scoped Makefile config.
 func GetTestConfig() *TestConfig {
 	if testConfigInstance != nil {
 		return testConfigInstance
@@ -31,10 +31,12 @@ func GetTestConfig() *TestConfig {
 	isCI := os.Getenv("CI") == "true" || os.Getenv("GITLAB_CI") == "true"
 
 	var configPath string
-	if isCI {
+	if override := os.Getenv("SCAFFOLD_E2E_CONFIG"); override != "" {
+		configPath = override
+	} else if isCI {
 		configPath = "evaluate/config.yaml.ci"
 	} else {
-		configPath = "evaluate/config.yaml.local"
+		configPath = "evaluate/_run/local/config.yaml.local"
 	}
 
 	runtimeConfigPath := configPath

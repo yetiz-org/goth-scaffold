@@ -1,8 +1,10 @@
 #!/bin/bash
-# generate-configs.sh — generate evaluate/env/ and config.yaml.local from templates.
+# generate-configs.sh — generate scoped evaluate/env/... secrets and config.yaml.local.
 # Usage: ./generate-configs.sh [--force]
 #   --force    Overwrite files that already exist.
 # All variables default to evaluate/templates/defaults.env; override by exporting env vars.
+# Local defaults write to evaluate/env/local and evaluate/_run/local.
+# Worktree targets write to evaluate/env/worktree/<id> and evaluate/_run/worktree/<id>.
 #
 # Database adapter selection:
 #   Set DB_ADAPTER=mysql (default) or DB_ADAPTER=postgres before running.
@@ -20,8 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVALUATE_DIR="$(dirname "$SCRIPT_DIR")"
 TEMPLATES_DIR="$EVALUATE_DIR/templates"
 DEFAULTS_FILE="$TEMPLATES_DIR/defaults.env"
-OUTPUT_ENV_DIR="${OUTPUT_ENV_DIR:-$EVALUATE_DIR/env}"
-OUTPUT_CONFIG_FILE="${OUTPUT_CONFIG_FILE:-$EVALUATE_DIR/config.yaml.local}"
+OUTPUT_ENV_DIR="${OUTPUT_ENV_DIR:-$EVALUATE_DIR/env/local}"
+OUTPUT_CONFIG_FILE="${OUTPUT_CONFIG_FILE:-$EVALUATE_DIR/_run/local/config.yaml.local}"
 
 FORCE=false
 while [[ $# -gt 0 ]]; do
@@ -78,6 +80,7 @@ echo -e "${BLUE}[INFO]${NC} Using database adapter: ${GREEN}${DB_ADAPTER}${NC} (
 mkdir -p "$OUTPUT_ENV_DIR/database-${DB_NAME_YAML}"
 mkdir -p "$OUTPUT_ENV_DIR/redis-${REDIS_NAME_YAML}"
 mkdir -p "$OUTPUT_ENV_DIR/cassandra-${CASSANDRA_NAME_YAML}"
+mkdir -p "$(dirname "$OUTPUT_CONFIG_FILE")"
 
 _generate() {
     local tmpl="$1"

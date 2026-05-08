@@ -26,6 +26,12 @@ make scaffold            # Create new project from this scaffold (interactive)
 
 Full command list: `make help`
 
+Local commands store generated files under `evaluate/env/local` and `evaluate/_run/local`.
+Worktree commands store generated files under `evaluate/env/worktree/<safe-id>` and
+`evaluate/_run/worktree/<safe-id>`, where `<safe-id>` is derived from `WORKTREE_ID`
+with a checksum to avoid collisions. Worktree host ports are persisted in that
+scope's `ports.env`.
+
 ## Run Modes
 
 The `-m` flag controls which daemons activate:

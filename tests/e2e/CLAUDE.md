@@ -132,10 +132,13 @@ make local-env-start
 make local-test-e2e
 
 # Or directly
-SCAFFOLD_E2E_BINARY=./scaffold go test -v -count=1 -timeout=120s ./tests/e2e/...
+SCAFFOLD_E2E_BINARY=./scaffold SCAFFOLD_E2E_CONFIG=evaluate/_run/local/config.yaml.local go test -v -count=1 -timeout=120s ./tests/e2e/...
 ```
 
 `SCAFFOLD_E2E_BINARY` controls which binary the test harness starts:
 - If set → use that path directly (must already be built).
 - If unset → the harness builds a fresh binary from source before running tests.
 - `make local-test-e2e` builds first then sets this variable automatically.
+
+`SCAFFOLD_E2E_CONFIG` controls which generated config the test harness uses.
+`make local-test-e2e` passes `evaluate/_run/local/config.yaml.local`; `make worktree-test-e2e` passes the matching `evaluate/_run/worktree/<safe-id>/config.yaml.local`.

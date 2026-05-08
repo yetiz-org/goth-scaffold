@@ -5,13 +5,63 @@ PROJECT_DB   := $(shell echo $(PROJECT_NAME) | tr '-' '_')
 EVALUATE_DIR := evaluate
 COMPOSE_FILE := $(EVALUATE_DIR)/docker-compose.yml
 COMPOSE      ?= docker compose
-CONFIG_FILE  ?= $(EVALUATE_DIR)/config.yaml.local
 
 # Database adapter selection — drives template rendering, docker-compose
 # profile, CLI tools, and reseed behaviour. Override per-invocation, e.g.
 #   DB_ADAPTER=postgres make local-db-seed
 DB_ADAPTER   ?= mysql
-COMPOSE_BASE := $(COMPOSE) -f $(COMPOSE_FILE) --profile $(DB_ADAPTER)
+
+COMPOSE_SCOPE       ?= local
+ENV_DIR             ?= $(EVALUATE_DIR)/env/$(COMPOSE_SCOPE)
+RUN_DIR             ?= $(EVALUATE_DIR)/_run/$(COMPOSE_SCOPE)
+CONFIG_FILE         ?= $(RUN_DIR)/config.yaml.local
+COMPOSE_RUN_DIR     ?= ./_run/$(COMPOSE_SCOPE)
+COMPOSE_PROJECT     ?= $(PROJECT_NAME)-$(subst /,-,$(COMPOSE_SCOPE))
+CONTAINER_PREFIX    ?= $(COMPOSE_PROJECT)
+MYSQL_PORT          ?= 3306
+POSTGRES_PORT       ?= 5432
+CASSANDRA_PORT      ?= 9042
+REDIS_PORT          ?= 6379
+ASYNQMON_PORT       ?= 8081
+APP_PORT            ?= 8080
+
+ifeq ($(DB_ADAPTER),postgres)
+DB_PORT_FOR_CONFIG := $(POSTGRES_PORT)
+else
+DB_PORT_FOR_CONFIG := $(MYSQL_PORT)
+endif
+
+COMPOSE_ENV  := COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT) CONTAINER_PREFIX=$(CONTAINER_PREFIX) RUN_DIR=$(COMPOSE_RUN_DIR) MYSQL_PORT=$(MYSQL_PORT) POSTGRES_PORT=$(POSTGRES_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) REDIS_PORT=$(REDIS_PORT) ASYNQMON_PORT=$(ASYNQMON_PORT)
+COMPOSE_BASE := $(COMPOSE_ENV) $(COMPOSE) -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile $(DB_ADAPTER)
+
+MYSQL_CONTAINER     := $(CONTAINER_PREFIX)-mysql
+POSTGRES_CONTAINER  := $(CONTAINER_PREFIX)-postgres
+CASSANDRA_CONTAINER := $(CONTAINER_PREFIX)-cassandra
+REDIS_CONTAINER     := $(CONTAINER_PREFIX)-redis
+
+DQ := "
+BT := `
+
+ifndef WORKTREE_ID
+WORKTREE_ID := $(notdir $(CURDIR))
+endif
+WORKTREE_ID_RAW := $(value WORKTREE_ID)
+WORKTREE_ID_SAFE := $(subst \,_bs_,$(subst $$,_dol_,$(subst $(BT),_bt_,$(subst $(DQ),_dq_,$(value WORKTREE_ID_RAW)))))
+WORKTREE_ID_HASH := $(shell printf '%s' "$(WORKTREE_ID_SAFE)" | cksum | awk '{print $$1}')
+WORKTREE_ID_SLUG := $(shell printf '%s' "$(WORKTREE_ID_SAFE)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_.-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$$//')
+WORKTREE_PATH_ID := $(if $(strip $(WORKTREE_ID_SLUG)),$(WORKTREE_ID_SLUG),worktree)-$(WORKTREE_ID_HASH)
+WORKTREE_COMPOSE_ID := $(shell printf '%s' "$(WORKTREE_PATH_ID)" | sed 's/[^a-z0-9_-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$$//')
+WORKTREE_PORT_BASE ?= $(shell printf '%s' "$(WORKTREE_ID_SAFE)" | cksum | awk '{print 20000 + ($$1 % 20000)}')
+WORKTREE_MYSQL_PORT     ?= $(WORKTREE_PORT_BASE)
+WORKTREE_POSTGRES_PORT  ?= $(shell expr $(WORKTREE_PORT_BASE) + 1)
+WORKTREE_CASSANDRA_PORT ?= $(shell expr $(WORKTREE_PORT_BASE) + 2)
+WORKTREE_REDIS_PORT     ?= $(shell expr $(WORKTREE_PORT_BASE) + 3)
+WORKTREE_ASYNQMON_PORT  ?= $(shell expr $(WORKTREE_PORT_BASE) + 4)
+WORKTREE_APP_PORT       ?= $(shell expr $(WORKTREE_PORT_BASE) + 5)
+WORKTREE_SCOPE          := worktree/$(WORKTREE_PATH_ID)
+WORKTREE_RUN_DIR        := $(EVALUATE_DIR)/_run/$(WORKTREE_SCOPE)
+WORKTREE_PORTS_CMD      := bash $(EVALUATE_DIR)/scripts/worktree-ports.sh "$(WORKTREE_RUN_DIR)" "$(WORKTREE_ID_SAFE)" "$(WORKTREE_PORT_BASE)"
+WORKTREE_VARS           := COMPOSE_SCOPE=$(WORKTREE_SCOPE) ENV_DIR=$(EVALUATE_DIR)/env/$(WORKTREE_SCOPE) RUN_DIR=$(WORKTREE_RUN_DIR) CONFIG_FILE=$(WORKTREE_RUN_DIR)/config.yaml.local COMPOSE_RUN_DIR=./_run/$(WORKTREE_SCOPE) COMPOSE_PROJECT=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID) CONTAINER_PREFIX=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -40,57 +90,93 @@ help: ## Show this help
 
 # ─── Local Environment (Docker Compose) ──────────────────────────────────────
 .PHONY: local-env-setup
-local-env-setup: ## Generate config.yaml.local and env credentials from templates (idempotent; honours DB_ADAPTER)
-	@DB_ADAPTER=$(DB_ADAPTER) bash $(EVALUATE_DIR)/scripts/generate-configs.sh
+local-env-setup: ## Generate scoped local config and env credentials from templates (idempotent; honours DB_ADAPTER)
+	@mkdir -p $(RUN_DIR)
+	@DB_ADAPTER=$(DB_ADAPTER) OUTPUT_ENV_DIR=$(ENV_DIR) OUTPUT_CONFIG_FILE=$(CONFIG_FILE) SECRET_PATH=$(ENV_DIR)/ DB_PORT=$(DB_PORT_FOR_CONFIG) REDIS_PORT=$(REDIS_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) APP_PORT=$(APP_PORT) bash $(EVALUATE_DIR)/scripts/generate-configs.sh
 
 .PHONY: local-env-start
-local-env-start: ## Start Docker services for the active DB_ADAPTER profile
-	@echo "$(BLUE)[INFO]$(NC) Starting services (adapter=$(DB_ADAPTER))..."
+local-env-start: ## Start scoped Docker services for the active DB_ADAPTER profile
+	@echo "$(BLUE)[INFO]$(NC) Starting services (scope=$(COMPOSE_SCOPE), adapter=$(DB_ADAPTER))..."
 	$(COMPOSE_BASE) up -d
 	@echo "$(GREEN)[OK]$(NC) Services started"
 
 .PHONY: local-env-status
-local-env-status: ## Show Docker service status
+local-env-status: ## Show scoped Docker service status
 	$(COMPOSE_BASE) ps
 
 .PHONY: local-env-logs
-local-env-logs: ## Follow Docker service logs (Ctrl-C to exit)
+local-env-logs: ## Follow scoped Docker service logs (Ctrl-C to exit)
 	$(COMPOSE_BASE) logs -f
 
 .PHONY: local-env-stop
-local-env-stop: ## Stop Docker services for the active DB_ADAPTER profile
-	@echo "$(BLUE)[INFO]$(NC) Stopping services (adapter=$(DB_ADAPTER))..."
+local-env-stop: ## Stop scoped Docker services for the active DB_ADAPTER profile
+	@echo "$(BLUE)[INFO]$(NC) Stopping services (scope=$(COMPOSE_SCOPE), adapter=$(DB_ADAPTER))..."
 	$(COMPOSE_BASE) down
 	@echo "$(GREEN)[OK]$(NC) Services stopped"
 
 .PHONY: local-env-clean
-local-env-clean: ## Destroy all local data volumes and config (destructive; both adapters)
-	@echo "$(YELLOW)[WARN]$(NC) Destroying all local data (MySQL / Postgres / Redis / Cassandra)..."
-	$(COMPOSE) -f $(COMPOSE_FILE) --profile mysql --profile postgres down -v
-	@if [ -d "$(EVALUATE_DIR)/_run" ]; then \
-		docker run --user root --rm -v "$$(pwd)/$(EVALUATE_DIR)/_run:/data" redis:7-alpine \
-			sh -c "rm -rf /data/*" 2>/dev/null || true; \
-		rm -rf $(EVALUATE_DIR)/_run; \
+local-env-clean: ## Destroy scoped local data and config only (destructive; both adapters)
+	@echo "$(YELLOW)[WARN]$(NC) Destroying scoped data (scope=$(COMPOSE_SCOPE))..."
+	$(COMPOSE_ENV) $(COMPOSE) -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile mysql --profile postgres down -v --remove-orphans
+	@if [ "$(COMPOSE_SCOPE)" = "local" ]; then \
+		for c in $(PROJECT_NAME)-mysql $(PROJECT_NAME)-postgres $(PROJECT_NAME)-cassandra $(PROJECT_NAME)-redis $(PROJECT_NAME)-asynqmon; do \
+			if docker ps -a --format '{{.Names}}' | grep -qx "$$c"; then \
+				docker rm -f "$$c" >/dev/null; \
+			fi; \
+		done; \
+		for n in $(PROJECT_NAME)-network $(PROJECT_NAME)_scaffold-network $(EVALUATE_DIR)_scaffold-network scaffold-network; do \
+			if docker network ls --format '{{.Name}}' | grep -qx "$$n"; then \
+				docker network rm "$$n" >/dev/null 2>&1 || true; \
+			fi; \
+		done; \
+		for d in $(EVALUATE_DIR)/_run/mysql $(EVALUATE_DIR)/_run/postgres $(EVALUATE_DIR)/_run/cassandra $(EVALUATE_DIR)/_run/redis; do \
+			if [ -d "$$d" ]; then \
+				docker run --user root --rm -v "$$(pwd)/$$d:/data" redis:7-alpine \
+					sh -c "rm -rf /data/*" 2>/dev/null || true; \
+				rm -rf "$$d"; \
+			fi; \
+		done; \
+		find $(EVALUATE_DIR)/env -mindepth 1 -maxdepth 1 -type d \
+			\( -name 'database-*' -o -name 'redis-*' -o -name 'cassandra-*' \) \
+			-exec rm -rf {} + 2>/dev/null || true; \
+		rm -f $(EVALUATE_DIR)/config.yaml.local; \
 	fi
-	@rm -rf $(EVALUATE_DIR)/env
+	@if [ -d "$(RUN_DIR)" ]; then \
+		docker run --user root --rm -v "$$(pwd)/$(RUN_DIR):/data" redis:7-alpine \
+			sh -c "rm -rf /data/*" 2>/dev/null || true; \
+		rm -rf $(RUN_DIR); \
+	fi
+	@rm -rf $(ENV_DIR)
+	@env_parent="$$(dirname "$(ENV_DIR)")"; \
+	while [ "$$env_parent" != "." ] && [ "$$env_parent" != "$(EVALUATE_DIR)" ]; do \
+		rmdir "$$env_parent" 2>/dev/null || break; \
+		env_parent="$$(dirname "$$env_parent")"; \
+	done; \
+	rmdir "$(EVALUATE_DIR)/env" 2>/dev/null || true
+	@run_parent="$$(dirname "$(RUN_DIR)")"; \
+	while [ "$$run_parent" != "." ] && [ "$$run_parent" != "$(EVALUATE_DIR)" ]; do \
+		rmdir "$$run_parent" 2>/dev/null || break; \
+		run_parent="$$(dirname "$$run_parent")"; \
+	done; \
+	rmdir "$(EVALUATE_DIR)/_run" 2>/dev/null || true
 	@echo "$(GREEN)[OK]$(NC) Environment cleaned"
 
 # ─── Service Connections ──────────────────────────────────────────────────────
 .PHONY: local-database-connect
 local-database-connect: ## Open database CLI for the active DB_ADAPTER
 ifeq ($(DB_ADAPTER),postgres)
-	docker exec -it $(PROJECT_NAME)-postgres psql -U postgres -d $(PROJECT_DB)
+	docker exec -it $(POSTGRES_CONTAINER) psql -U postgres -d $(PROJECT_DB)
 else
-	docker exec -it $(PROJECT_NAME)-mysql mysql -u root -proot
+	docker exec -it $(MYSQL_CONTAINER) mysql -u root -proot
 endif
 
 .PHONY: local-redis-connect
 local-redis-connect: ## Open Redis CLI
-	docker exec -it $(PROJECT_NAME)-redis redis-cli
+	docker exec -it $(REDIS_CONTAINER) redis-cli
 
 .PHONY: local-cassandra-connect
 local-cassandra-connect: ## Open Cassandra CQL shell
-	docker exec -it $(PROJECT_NAME)-cassandra cqlsh
+	docker exec -it $(CASSANDRA_CONTAINER) cqlsh
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 .PHONY: build
@@ -112,8 +198,8 @@ clean: ## Remove compiled binaries
 
 # ─── Run ─────────────────────────────────────────────────────────────────────
 .PHONY: local-run
-local-run: local-env-setup local-env-start _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Build and start API on :8080 (default mode)
-	@echo "$(BLUE)[INFO]$(NC) Starting API on :8080 (mode=default, adapter=$(DB_ADAPTER))"
+local-run: local-env-setup local-env-start _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Build and start API on the scoped APP_PORT (default mode)
+	@echo "$(BLUE)[INFO]$(NC) Starting API on :$(APP_PORT) (scope=$(COMPOSE_SCOPE), mode=default, adapter=$(DB_ADAPTER))"
 	./$(BINARY_NAME) -c $(CONFIG_FILE) -m default
 
 # ─── Service Health Wait ─────────────────────────────────────────────────────
@@ -133,7 +219,7 @@ _local-wait-mysql:
 	@elapsed=0; \
 	for i in $$(seq 1 60); do \
 		printf "\r$(BLUE)[INFO]$(NC) MySQL check... %3ds / 120s  " $$elapsed; \
-		docker exec $(PROJECT_NAME)-mysql mysqladmin ping -h localhost --silent >/dev/null 2>&1 && \
+		docker exec $(MYSQL_CONTAINER) mysqladmin ping -h localhost --silent >/dev/null 2>&1 && \
 			printf "\n" && echo "$(GREEN)[OK]$(NC) MySQL ready ($$elapsed s)" && exit 0; \
 		sleep 2; \
 		elapsed=$$((elapsed + 2)); \
@@ -147,7 +233,7 @@ _local-wait-postgres:
 	@elapsed=0; \
 	for i in $$(seq 1 60); do \
 		printf "\r$(BLUE)[INFO]$(NC) PostgreSQL check... %3ds / 120s  " $$elapsed; \
-		docker exec $(PROJECT_NAME)-postgres pg_isready -U postgres >/dev/null 2>&1 && \
+		docker exec $(POSTGRES_CONTAINER) pg_isready -U postgres >/dev/null 2>&1 && \
 			printf "\n" && echo "$(GREEN)[OK]$(NC) PostgreSQL ready ($$elapsed s)" && exit 0; \
 		sleep 2; \
 		elapsed=$$((elapsed + 2)); \
@@ -162,7 +248,7 @@ _local-wait-cassandra:
 	@elapsed=0; \
 	for i in $$(seq 1 90); do \
 		printf "\r$(BLUE)[INFO]$(NC) Cassandra check... %3ds / 180s  " $$elapsed; \
-		docker exec $(PROJECT_NAME)-cassandra cqlsh -e "SELECT release_version FROM system.local" >/dev/null 2>&1 && \
+		docker exec $(CASSANDRA_CONTAINER) cqlsh -e "SELECT release_version FROM system.local" >/dev/null 2>&1 && \
 			printf "\n" && echo "$(GREEN)[OK]$(NC) Cassandra ready ($$elapsed s)" && exit 0; \
 		sleep 2; \
 		elapsed=$$((elapsed + 2)); \
@@ -174,7 +260,7 @@ _local-wait-cassandra:
 .PHONY: _local-init-cassandra
 _local-init-cassandra:
 	@echo "$(BLUE)[INFO]$(NC) Initialising Cassandra keyspace $(PROJECT_DB)..."
-	@docker exec $(PROJECT_NAME)-cassandra cqlsh \
+	@docker exec $(CASSANDRA_CONTAINER) cqlsh \
 		-e "CREATE KEYSPACE IF NOT EXISTS $(PROJECT_DB) WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};" && \
 		echo "$(GREEN)[OK]$(NC) Cassandra keyspace $(PROJECT_DB) ready"
 
@@ -199,10 +285,10 @@ local-db-seed: local-db-migration ## Run migrations then seed data
 local-db-reseed: _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Drop and recreate the active database, then re-run migrations and seeds
 	@echo "$(YELLOW)[WARN]$(NC) Dropping and recreating database $(PROJECT_DB) (adapter=$(DB_ADAPTER))..."
 ifeq ($(DB_ADAPTER),postgres)
-	@docker exec $(PROJECT_NAME)-postgres psql -U postgres -d postgres \
+	@docker exec $(POSTGRES_CONTAINER) psql -U postgres -d postgres \
 		-c "DROP DATABASE IF EXISTS $(PROJECT_DB); CREATE DATABASE $(PROJECT_DB);" 2>/dev/null
 else
-	@docker exec $(PROJECT_NAME)-mysql mysql -u root -proot \
+	@docker exec $(MYSQL_CONTAINER) mysql -u root -proot \
 		-e "DROP DATABASE IF EXISTS $(PROJECT_DB); CREATE DATABASE $(PROJECT_DB);" 2>/dev/null
 endif
 	@echo "$(BLUE)[INFO]$(NC) Running migrations..."
@@ -220,8 +306,60 @@ local-test: ## Run unit tests (verbose, no cache; excludes e2e)
 local-test-e2e: build ## Run E2E tests (services must be up; starts app server automatically)
 	@echo "$(BLUE)[INFO]$(NC) Running E2E tests..."
 	@echo "$(YELLOW)[NOTE]$(NC) Ensure $(CONFIG_FILE) exists (run: make local-env-setup)"
-	SCAFFOLD_E2E_BINARY=./$(BINARY_NAME) go test -v -count=1 -timeout=120s ./tests/e2e/...
+	SCAFFOLD_E2E_BINARY=./$(BINARY_NAME) SCAFFOLD_E2E_CONFIG=$(CONFIG_FILE) go test -v -count=1 -timeout=120s ./tests/e2e/...
 	@echo "$(GREEN)[OK]$(NC) E2E tests done"
+
+# ─── Worktree Environment (isolated Docker Compose scope) ───────────────────
+.PHONY: _worktree-guard
+_worktree-guard:
+	@[ -n "$(WORKTREE_PATH_ID)" ] && [ -n "$(WORKTREE_COMPOSE_ID)" ] || { \
+		echo "$(RED)[ERR]$(NC) WORKTREE_ID=$(WORKTREE_ID_SAFE) does not produce a safe worktree scope"; \
+		exit 1; \
+	}
+
+.PHONY: worktree-env-setup
+worktree-env-setup: _worktree-guard ## Generate isolated env/worktree/<safe-id> and _run/worktree/<safe-id>/config.yaml.local
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-setup
+
+.PHONY: worktree-env-start
+worktree-env-start: _worktree-guard ## Start isolated Docker services for this worktree
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-start
+
+.PHONY: worktree-env-status
+worktree-env-status: _worktree-guard ## Show isolated Docker service status for this worktree
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-status
+
+.PHONY: worktree-env-logs
+worktree-env-logs: _worktree-guard ## Follow isolated Docker service logs for this worktree
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-logs
+
+.PHONY: worktree-env-stop
+worktree-env-stop: _worktree-guard ## Stop isolated Docker services for this worktree
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-stop
+
+.PHONY: worktree-env-clean
+worktree-env-clean: _worktree-guard ## Destroy only this worktree's containers, env, and _run data
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-env-clean
+
+.PHONY: worktree-run
+worktree-run: _worktree-guard ## Build and start this worktree API on its isolated APP_PORT
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-run
+
+.PHONY: worktree-db-migration
+worktree-db-migration: _worktree-guard ## Run migrations in this worktree's isolated environment
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-db-migration
+
+.PHONY: worktree-db-seed
+worktree-db-seed: _worktree-guard ## Run migrations then seeds in this worktree's isolated environment
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-db-seed
+
+.PHONY: worktree-db-reseed
+worktree-db-reseed: _worktree-guard ## Drop/recreate this worktree's active database, then migrate and seed
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-db-reseed
+
+.PHONY: worktree-test-e2e
+worktree-test-e2e: _worktree-guard ## Run E2E tests against this worktree's isolated config
+	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-test-e2e
 
 # ─── Go Toolchain ────────────────────────────────────────────────────────────
 .PHONY: fmt

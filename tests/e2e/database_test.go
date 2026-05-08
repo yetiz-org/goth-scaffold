@@ -12,7 +12,7 @@ import (
 //
 // The test is skipped automatically when no database is configured
 // (DataStore.DatabaseName is empty in the active config file).
-// To enable locally: ensure evaluate/config.yaml.local has a non-empty
+// To enable locally: ensure the scoped generated config has a non-empty
 // datastore.database_name and the Docker services are running (make local-env-start).
 func TestDatabaseConnectivity(t *testing.T) {
 	t.Parallel()
@@ -36,7 +36,7 @@ func TestDatabaseConnectivity(t *testing.T) {
 //
 // The test is skipped automatically when no Redis is configured
 // (DataStore.RedisName is empty in the active config file).
-// To enable locally: ensure evaluate/config.yaml.local has a non-empty
+// To enable locally: ensure the scoped generated config has a non-empty
 // datastore.redis_name and the Docker services are running (make local-env-start).
 func TestRedisConnectivity(t *testing.T) {
 	t.Parallel()
