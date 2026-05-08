@@ -5,7 +5,7 @@
 ## Core Contract
 
 - Embed the shared handler task (or a derived task) in every endpoint handler struct.
-- Implement HTTP behavior by overriding struct methods: `Index`, `Get`, `Post`, `Put`, `Patch`, `Delete`.
+- Implement HTTP behavior by overriding struct methods: `Index`, `Get`, `Head`, `Post`, `Put`, `Patch`, `Delete`.
 - Do not create package-level handler functions — behavior lives on the struct.
 - Expose one package-level singleton per handler: `var Handler<Name> = &<Name>{}`.
 
@@ -21,18 +21,25 @@
 
 ## Method Dispatch Table
 
-| HTTP Verb | Tries first | Falls back to                                 | Falls back to |
-|-----------|-------------|-----------------------------------------------|---------------|
-| `GET`     | `Index`     | `Get` (if `Index` returns `NotImplemented`)   | 405           |
-| `POST`    | `Create`    | `Post` (if `Create` returns `NotImplemented`) | 405           |
-| `PUT`     | `Put`       | —                                             | 405           |
-| `PATCH`   | `Patch`     | —                                             | 405           |
-| `DELETE`  | `Delete`    | —                                             | 405           |
-| `OPTIONS` | `Options`   | —                                             | 405           |
+| HTTP Verb | Tries first | Falls back to                                 | Default if unoverridden |
+|-----------|-------------|-----------------------------------------------|-------------------------|
+| `GET`     | `Index`     | `Get` (if `Index` returns `NotImplemented`)   | 405                     |
+| `HEAD`    | `Head`      | — (no fallback to `Get`)                      | 200 OK + empty body     |
+| `POST`    | `Create`    | `Post` (if `Create` returns `NotImplemented`) | 405                     |
+| `PUT`     | `Put`       | —                                             | 405                     |
+| `PATCH`   | `Patch`     | —                                             | 405                     |
+| `DELETE`  | `Delete`    | —                                             | 405                     |
+| `OPTIONS` | `Options`   | —                                             | 200 OK                  |
 
-**Key implication**: `Index` and `Create` are opt-in override points. If you don't override
-them, the framework falls back silently — no boilerplate needed. Use `Index` for list endpoints
-(`GET /v1/foos`) and `Get` for single-item endpoints (`GET /v1/foos/:id`).
+**Key implications**:
+
+- `Index` and `Create` are opt-in override points. If you don't override them, the framework
+  falls back silently — no boilerplate needed. Use `Index` for list endpoints (`GET /v1/foos`)
+  and `Get` for single-item endpoints (`GET /v1/foos/:id`).
+- `Head` is dispatched **independently** from `Get` — it does **not** inherit `Get`'s body.
+  The default returns 200 OK with an empty body so clients can probe the endpoint; override
+  `Head` only to deny HEAD or emit custom headers (e.g. `Content-Length`, `ETag`,
+  `Last-Modified`).
 
 ## Register() Contract
 

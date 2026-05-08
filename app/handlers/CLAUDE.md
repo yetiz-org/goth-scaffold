@@ -86,6 +86,7 @@ type FooPatchRequest struct { ... }
 
 func (h *Foo) Index(...) ghttp.ErrorResponse { ... }  // GET  list
 func (h *Foo) Get(...)   ghttp.ErrorResponse { ... }  // GET  single
+func (h *Foo) Head(...)  ghttp.ErrorResponse { ... }  // HEAD single
 func (h *Foo) Post(...)  ghttp.ErrorResponse { ... }  // POST
 func (h *Foo) Put(...)   ghttp.ErrorResponse { ... }  // PUT
 func (h *Foo) Patch(...) ghttp.ErrorResponse { ... }  // PATCH
@@ -97,7 +98,7 @@ func (h *Foo) _buildQuery(...) { ... }  // private helper — after all HTTP met
 ### Ordering Rules
 
 - **Section 1**: public first — `var HandlerFoo` and `Register()` before any private fields.
-- **Section 3 — HTTP method order**: `Index` → `Get` → `Post` → `Put` → `Patch` → `Delete`.
+- **Section 3 — HTTP method order**: `Index` → `Get` → `Head` → `Post` → `Put` → `Patch` → `Delete`.
 - **Private helpers** (`_PascalCase`) go after all HTTP method overrides within section 3.
 - Do not add, reorder, or remove sections.
 
@@ -106,7 +107,9 @@ func (h *Foo) _buildQuery(...) { ... }  // private helper — after all HTTP met
 - Override only the methods the endpoint actually handles.
 - Unoverridden methods use task defaults (most return 405 Method Not Allowed).
 - Default `Index` returns `ghttp.NotImplemented` — enables automatic GET fallback to `Get`.
+- Default `Head` returns `nil` (200 OK with empty body) — HEAD does **not** fall back to `Get`; override only to deny HEAD or emit custom headers.
 - Use `Index` for list/root (`GET /v1/foos`); use `Get` for single-item (`GET /v1/foos/:id`).
+- Use `Head` only when the endpoint must emit response headers without a body (e.g. cache validation, length probing); otherwise leave unoverridden.
 - Use `Patch` for partial updates instead of overloading `Post`.
 
 ## Naming
