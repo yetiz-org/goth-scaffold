@@ -14,16 +14,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// quoteSQLIdentifier delegates to the active dialect so SQL identifiers are
+// _QuoteSQLIdentifier delegates to the active dialect so SQL identifiers are
 // quoted with backticks on MySQL and double quotes on PostgreSQL.
-func quoteSQLIdentifier(ident string) string {
+func _QuoteSQLIdentifier(ident string) string {
 	return dialect.Current().QuoteIdent(ident)
 }
 
 func _ApplyWhereConditions(tx *gorm.DB, conditions map[string]any) *gorm.DB {
 	q := tx
 	for k, v := range conditions {
-		col := quoteSQLIdentifier(k)
+		col := _QuoteSQLIdentifier(k)
 		if v == nil {
 			q = q.Where(fmt.Sprintf("%s IS NULL", col))
 			continue
@@ -42,7 +42,7 @@ func _ApplyWhereConditions(tx *gorm.DB, conditions map[string]any) *gorm.DB {
 }
 
 type DatabaseDefaultRepository[K any, T models.Model] struct {
-	db      *gorm.DB
+	_Db     *gorm.DB
 	_DBFunc func() *gorm.DB
 }
 
@@ -159,7 +159,7 @@ type TransactionFunc func(tx *gorm.DB) error
 
 func NewDatabaseDefaultRepository[K any, T models.Model](db *gorm.DB) *DatabaseDefaultRepository[K, T] {
 	return &DatabaseDefaultRepository[K, T]{
-		db: db,
+		_Db: db,
 	}
 }
 
@@ -213,11 +213,11 @@ func (d *DatabaseDefaultRepository[K, T]) SaveTx(tx *gorm.DB, entity T) error {
 }
 
 func (d *DatabaseDefaultRepository[K, T]) SaveRetry(entity T) error {
-	return d.saveWithRetry(d.DB(), entity)
+	return d._SaveWithRetry(d.DB(), entity)
 }
 
 func (d *DatabaseDefaultRepository[K, T]) SaveRetryTx(tx *gorm.DB, entity T) error {
-	return d.saveWithRetry(tx, entity)
+	return d._SaveWithRetry(tx, entity)
 }
 
 func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc) error {
@@ -225,13 +225,13 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 		maxRetries = 1
 	}
 
-	backoffs := transactionRetryBackoffs(maxRetries)
+	backoffs := _TransactionRetryBackoffs(maxRetries)
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		tx, err := begin()
 		if err != nil {
 			lastErr = err
-			if !isRetryableError(err) || attempt == maxRetries {
+			if !_IsRetryableError(err) || attempt == maxRetries {
 				return err
 			}
 
@@ -243,7 +243,7 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 			continue
 		}
 
-		err = withTransactionRecovery(func() error {
+		err = _WithTransactionRecovery(func() error {
 			return fn(tx)
 		}, func() {
 			if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
@@ -252,7 +252,7 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 		})
 		if err != nil {
 			lastErr = err
-			if !isRetryableError(err) || attempt == maxRetries {
+			if !_IsRetryableError(err) || attempt == maxRetries {
 				return err
 			}
 
@@ -270,7 +270,7 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 				kklogger.ErrorJ("repo:WithTransactionRetry#commit!rollback_error", rollbackErr.Error())
 			}
 
-			if !isRetryableError(commitErr) || attempt == maxRetries {
+			if !_IsRetryableError(commitErr) || attempt == maxRetries {
 				return commitErr
 			}
 
@@ -288,7 +288,7 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 	return lastErr
 }
 
-func (d *DatabaseDefaultRepository[K, T]) saveWithRetry(tx *gorm.DB, entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) _SaveWithRetry(tx *gorm.DB, entity T) error {
 	backoffs := []time.Duration{
 		10 * time.Millisecond,
 		20 * time.Millisecond,
@@ -317,7 +317,7 @@ func (d *DatabaseDefaultRepository[K, T]) saveWithRetry(tx *gorm.DB, entity T) e
 		}
 
 		lastErr = err
-		if !isRetryableError(err) || attempt == len(backoffs) {
+		if !_IsRetryableError(err) || attempt == len(backoffs) {
 			return err
 		}
 
@@ -327,12 +327,12 @@ func (d *DatabaseDefaultRepository[K, T]) saveWithRetry(tx *gorm.DB, entity T) e
 	return lastErr
 }
 
-func withTransactionRecovery(fn func() error, rollback func()) (err error) {
+func _WithTransactionRecovery(fn func() error, rollback func()) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			rollback()
 			err = fmt.Errorf("panic occurred")
-			kklogger.ErrorJ("repo:withTransactionRecovery#panic!recover", "panic occurred")
+			kklogger.ErrorJ("repo:_WithTransactionRecovery#panic!recover", "panic occurred")
 		}
 	}()
 
@@ -344,7 +344,7 @@ func withTransactionRecovery(fn func() error, rollback func()) (err error) {
 	return nil
 }
 
-func transactionRetryBackoffs(maxRetries int) []time.Duration {
+func _TransactionRetryBackoffs(maxRetries int) []time.Duration {
 	baseBackoffs := []time.Duration{
 		50 * time.Millisecond,
 		100 * time.Millisecond,
@@ -411,7 +411,7 @@ func (d *DatabaseDefaultRepository[K, T]) DB() *gorm.DB {
 		return d._DBFunc()
 	}
 
-	return d.db
+	return d._Db
 }
 
 // DefaultLimit returns the shared default page size for repositories.
@@ -490,7 +490,7 @@ func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, condit
 					return requeryErr
 				}
 
-				copyPrimaryKey(existing, entity)
+				_CopyPrimaryKey(existing, entity)
 
 				saveErr := tx.Omit("created_at").Save(entity).Error
 				if saveErr != nil {
@@ -503,7 +503,7 @@ func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, condit
 			}
 		}
 	} else {
-		copyPrimaryKey(existing, entity)
+		_CopyPrimaryKey(existing, entity)
 
 		saveErr := tx.Omit("created_at").Save(entity).Error
 		if saveErr != nil {
@@ -575,12 +575,13 @@ func IsLockNoWaitError(err error) bool {
 	return dialect.Current().IsLockNoWaitErr(err)
 }
 
-func isRetryableError(err error) bool {
+func _IsRetryableError(err error) bool {
 	return dialect.Current().IsRetryableErr(err)
 }
 
-// copyPrimaryKey copies the primary key value from src to dst.
-func copyPrimaryKey(src, dst any) {
+// _CopyPrimaryKey copies the primary key value from src to dst.
+// Supports multiple ID field naming conventions (ID, Id, id) and detects via gorm primaryKey tag.
+func _CopyPrimaryKey(src, dst any) {
 	srcVal := reflect.ValueOf(src).Elem()
 	dstVal := reflect.ValueOf(dst).Elem()
 	srcType := srcVal.Type()

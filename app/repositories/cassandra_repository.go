@@ -14,10 +14,11 @@ import (
 )
 
 type CassandraDefaultRepository[T models.Model] struct {
-	session *gocql.Session
+	_Session     *gocql.Session
+	_SessionFunc func() *gocql.Session
 }
 
-func (r *CassandraDefaultRepository[T]) try(query *gocql.Query) (result models.TryResult) {
+func (r *CassandraDefaultRepository[T]) _Try(query *gocql.Query) (result models.TryResult) {
 	result.LastResult = map[string]any{}
 	iter := query.Iter()
 	iter.MapScan(result.LastResult)
@@ -42,7 +43,11 @@ func (r *CassandraDefaultRepository[T]) TableName() string {
 }
 
 func (r *CassandraDefaultRepository[T]) Session() *gocql.Session {
-	return r.session
+	if r._SessionFunc != nil {
+		return r._SessionFunc()
+	}
+
+	return r._Session
 }
 
 func (r *CassandraDefaultRepository[T]) QueryBuilder() *models.CassandraQueryBuilder[T] {
@@ -52,7 +57,7 @@ func (r *CassandraDefaultRepository[T]) QueryBuilder() *models.CassandraQueryBui
 func (r *CassandraDefaultRepository[T]) SaveQuery(entity T) (stmt string, args []any) {
 	stmt = "INSERT INTO " + entity.TableName() + "("
 	refV := reflect.ValueOf(entity)
-	if refV.Kind() == reflect.Ptr {
+	if refV.Kind() == reflect.Pointer {
 		refV = refV.Elem()
 	}
 
@@ -128,7 +133,7 @@ func (r *CassandraDefaultRepository[T]) DeleteQuery(entity T) (stmt string, args
 
 	stmt = "DELETE FROM " + entity.TableName() + " WHERE "
 	refV := reflect.ValueOf(entity)
-	if refV.Kind() == reflect.Ptr {
+	if refV.Kind() == reflect.Pointer {
 		refV = refV.Elem()
 	}
 
@@ -187,7 +192,7 @@ func (r *CassandraDefaultRepository[T]) UniqueCreate(entity T) error {
 	}
 
 	stmt = strings.TrimSuffix(strings.TrimSuffix(stmt, " "), ";")
-	err := r.try(r.session.Query(fmt.Sprintf("%s IF NOT EXISTS;", stmt), args...)).Error
+	err := r._Try(r.Session().Query(fmt.Sprintf("%s IF NOT EXISTS;", stmt), args...)).Error
 	if err == nil {
 		if m, ok := any(entity).(models.ModelSavePostHook); ok {
 			if err := m.PostSave(context.Background()); err != nil {
@@ -207,7 +212,7 @@ func (r *CassandraDefaultRepository[T]) Save(entity T) error {
 	}
 
 	stmt, args := r.SaveQuery(entity)
-	err := r.session.Query(stmt, args...).Exec()
+	err := r.Session().Query(stmt, args...).Exec()
 	if err == nil {
 		if m, ok := any(entity).(models.ModelSavePostHook); ok {
 			if err := m.PostSave(context.Background()); err != nil {
@@ -231,7 +236,7 @@ func (r *CassandraDefaultRepository[T]) Delete(entity T) error {
 		return models.ErrModelMetadataNotFound
 	}
 
-	err := r.session.Query(stmt, args...).Exec()
+	err := r.Session().Query(stmt, args...).Exec()
 	if err == nil {
 		if m, ok := any(entity).(models.ModelDeletePostHook); ok {
 			if err := m.PostDelete(context.Background()); err != nil {
@@ -245,6 +250,12 @@ func (r *CassandraDefaultRepository[T]) Delete(entity T) error {
 
 func NewCassandraDefaultRepository[T models.Model](session *gocql.Session) *CassandraDefaultRepository[T] {
 	return &CassandraDefaultRepository[T]{
-		session: session,
+		_Session: session,
+	}
+}
+
+func NewCassandraDefaultRepositoryF[T models.Model](sessionFunc func() *gocql.Session) *CassandraDefaultRepository[T] {
+	return &CassandraDefaultRepository[T]{
+		_SessionFunc: sessionFunc,
 	}
 }

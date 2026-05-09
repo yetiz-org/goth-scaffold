@@ -10,12 +10,18 @@ import (
 )
 
 type SiteSettingRepository struct {
-	*DatabaseDefaultRepository[models.SiteSettingId, *models.SiteSetting]
+	models.DatabaseRepository[models.SiteSettingId, *models.SiteSetting]
 }
 
 func NewSiteSettingRepository(db *gorm.DB) models.SiteSettingRepository {
 	return &SiteSettingRepository{
 		NewDatabaseDefaultRepository[models.SiteSettingId, *models.SiteSetting](db),
+	}
+}
+
+func NewSiteSettingRepositoryF(dbFunc func() *gorm.DB) models.SiteSettingRepository {
+	return &SiteSettingRepository{
+		NewDatabaseDefaultRepositoryF[models.SiteSettingId, *models.SiteSetting](dbFunc),
 	}
 }
 

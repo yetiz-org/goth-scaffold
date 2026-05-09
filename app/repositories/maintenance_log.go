@@ -15,6 +15,12 @@ func NewMaintenanceLogRepository(session *gocql.Session) models.MaintenanceLogRe
 	}
 }
 
+func NewMaintenanceLogRepositoryF(sessionFunc func() *gocql.Session) models.MaintenanceLogRepository {
+	return &MaintenanceLogRepository{
+		NewCassandraDefaultRepositoryF[*models.MaintenanceLog](sessionFunc),
+	}
+}
+
 func (r *MaintenanceLogRepository) Get(typ, key string) (maintenanceLog *models.MaintenanceLog) {
 	return r.QueryBuilder().Where("type = ?", typ).Where("key = ?", key).First()
 }

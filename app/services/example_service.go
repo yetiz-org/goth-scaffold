@@ -1,123 +1,131 @@
+// ExampleService demonstrates the service-layer conventions used in this scaffold.
+//
+// Style highlights:
+//   - DEP container (`_ExampleServiceDeps`) holds repositories and DB accessor
+//     function references; `_DefaultExampleServiceDeps` is initialised eagerly at
+//     package load (zero connections opened, only function pointers stored).
+//   - `*F` repository constructors take `func() *gorm.DB` / `func() *gocql.Session`
+//     so connection resolution happens lazily on the first query.
+//   - `_Deps()` returns the active container; tests inject mocks by setting
+//     `_Dependency` on the service struct directly.
+//   - Method names follow `services:Struct.Method#section!action` for kklogger.
+//   - `Tx` suffix marks methods that participate in an external transaction.
 package services
 
-// ExampleService demonstrates the service layer conventions.
-//
-// Three usage patterns are shown:
-//
-//  1. Singleton (global shared instance via ExampleServiceInstance)
-//  2. Direct construction: &ExampleService{}
-//  3. Struct embedding: embed ExampleService inside another struct
-//
-// The DEP injection pattern (_Dependency / _Deps()) keeps the service testable:
-// tests can inject a mock repo via _Dependency; production falls back to a lazily
-// initialised package-level default via _Deps().
-
 import (
-	"sync"
-
+	"github.com/gocql/gocql"
 	kklogger "github.com/yetiz-org/goth-kklogger"
 	"github.com/yetiz-org/goth-scaffold/app/connector/database"
+	"github.com/yetiz-org/goth-scaffold/app/connector/keyspaces"
 	"github.com/yetiz-org/goth-scaffold/app/models"
 	"github.com/yetiz-org/goth-scaffold/app/repositories"
 	"gorm.io/gorm"
 )
 
-// =============================================================================
-// Dependency container
-// =============================================================================
-
-// _ExampleDeps holds injected repositories for ExampleService.
-// Replace any field with a mock implementation during testing.
-type _ExampleDeps struct {
-	SiteSettingRepo models.SiteSettingRepository
-}
-
-// _defaultExampleDeps is the process-wide default dependency set.
-// It is initialised once on first production use via _defaultExampleDepsOnce.
-// Tests bypass this by setting _Dependency on the ExampleService struct directly.
-var (
-	_defaultExampleDeps     *_ExampleDeps
-	_defaultExampleDepsOnce sync.Once
-)
-
-// =============================================================================
-// Singleton (optional — convenient for handlers and daemons)
-// =============================================================================
-
-var (
-	_exampleService     *ExampleService
-	_exampleServiceOnce sync.Once
-)
-
-// ExampleServiceInstance returns the process-wide singleton.
-func ExampleServiceInstance() *ExampleService {
-	_exampleServiceOnce.Do(func() {
-		_exampleService = &ExampleService{}
-	})
-
-	return _exampleService
-}
-
-// =============================================================================
-// Service struct
-// =============================================================================
-
-// ExampleService handles business logic for the Example domain.
-//
-// Direct construction (handler, no singleton required):
-//
-//	svc := &ExampleService{}
-//
-// Inject test doubles:
-//
-//	svc := &ExampleService{_Dependency: &_ExampleDeps{SiteSettingRepo: mockRepo}}
-//
-// Struct embedding (embed directly into another struct):
-//
-//	type FooHandler struct{ ExampleService }
-//	h.ListSettings()
+// ExampleService demonstrates the service layer for the SiteSetting and
+// MaintenanceLog domains. Construct one per request or share at package level —
+// the struct itself is stateless aside from its dependency container.
 type ExampleService struct {
-	// _Dependency is nil in production.
-	// Set this field in tests to inject mocks without modifying the service.
-	_Dependency *_ExampleDeps
+	_Dependency *_ExampleServiceDeps
 }
 
-// _Deps returns the active dependency set.
-// In production (_Dependency == nil) the package-level default is lazily initialised once
-// and reused for the lifetime of the process.
-// In tests, set _Dependency on the struct to inject mocks without touching the package default.
-func (s *ExampleService) _Deps() *_ExampleDeps {
+// _ExampleServiceDeps groups the repositories and DB accessors that an
+// ExampleService instance needs.
+//
+// All fields except *Repository are bare function references (no parens) so
+// that connection lookup defers to the connectors instead of running at
+// package init time.
+type _ExampleServiceDeps struct {
+	SiteSettingRepository    models.SiteSettingRepository
+	SiteSettingTagRepository models.SiteSettingTagRepository
+	MaintenanceLogRepository models.MaintenanceLogRepository
+	ReaderDB                 func() *gorm.DB
+	WriterDB                 func() *gorm.DB
+	// CassandraSession resolves the writer keyspace session. The scaffold uses
+	// a single Cassandra session per request path; if a read/write split is
+	// needed later, add a separate ReaderSession field rather than aliasing.
+	CassandraSession func() *gocql.Session
+}
+
+// _DefaultExampleServiceDeps is the process-wide default dependency set.
+// Eagerly initialised at package load; tests bypass it via the `_Dependency`
+// field on the ExampleService struct.
+var _DefaultExampleServiceDeps = _ExampleServiceDeps{
+	SiteSettingRepository:    repositories.NewSiteSettingRepositoryF(database.Writer),
+	SiteSettingTagRepository: repositories.NewSiteSettingTagRepositoryF(database.Writer),
+	MaintenanceLogRepository: repositories.NewMaintenanceLogRepositoryF(_KeyspacesWriterSession),
+	ReaderDB:                 database.Reader,
+	WriterDB:                 database.Writer,
+	CassandraSession:         _KeyspacesWriterSession,
+}
+
+// _KeyspacesWriterSession adapts the keyspaces operator to a session function
+// reference so a closure literal does not need to be inlined into the deps map.
+func _KeyspacesWriterSession() *gocql.Session {
+	if !keyspaces.Enabled() {
+		return nil
+	}
+
+	return keyspaces.Writer().Session()
+}
+
+// NewExampleService returns a new ExampleService bound to the package-level
+// default dependency set.
+func NewExampleService() *ExampleService {
+	return &ExampleService{_Dependency: &_DefaultExampleServiceDeps}
+}
+
+// _Deps returns the active dependency container. Tests should set
+// `_Dependency` on the service to inject mocks; production code receives
+// the eager-initialised `_DefaultExampleServiceDeps` automatically.
+func (s *ExampleService) _Deps() *_ExampleServiceDeps {
 	if s != nil && s._Dependency != nil {
 		return s._Dependency
 	}
 
-	_defaultExampleDepsOnce.Do(func() {
-		_defaultExampleDeps = &_ExampleDeps{
-			SiteSettingRepo: repositories.NewSiteSettingRepository(database.Writer()),
-		}
-	})
-
-	return _defaultExampleDeps
+	return &_DefaultExampleServiceDeps
 }
 
-// =============================================================================
-// Public methods
-// =============================================================================
+// SiteSettingRepository exposes the site-setting repository.
+func (s *ExampleService) SiteSettingRepository() models.SiteSettingRepository {
+	return s._Deps().SiteSettingRepository
+}
 
-// ListSettings returns all site settings, ordered by category/key.
-// Returns an empty slice on failure; errors are logged internally.
+// SiteSettingTagRepository exposes the site-setting-tag repository.
+func (s *ExampleService) SiteSettingTagRepository() models.SiteSettingTagRepository {
+	return s._Deps().SiteSettingTagRepository
+}
+
+// MaintenanceLogRepository exposes the Cassandra maintenance-log repository.
+func (s *ExampleService) MaintenanceLogRepository() models.MaintenanceLogRepository {
+	return s._Deps().MaintenanceLogRepository
+}
+
+// ListSettings returns every site setting ordered by category and key.
+//
+// 業務邏輯：
+//   - 單純委派給 SiteSettingRepository.List() 並回傳全量結果。
+//   - 失敗時 repository 內部已記錄錯誤，本層回傳空 slice。
+//
+// 回傳：
+//   - []*models.SiteSetting：所有 SiteSetting 列表，可能為空。
 func (s *ExampleService) ListSettings() []*models.SiteSetting {
-	kklogger.InfoJ("services:ExampleService.ListSettings#fetch!start", nil)
-
-	return s._Deps().SiteSettingRepo.List()
+	return s.SiteSettingRepository().List()
 }
 
-// FindSettings returns site settings that satisfy the given query options.
-// Returns nil on failure; errors are logged internally.
+// FindSettings 套用 DatabaseQueryOption 後查詢 SiteSetting。
+//
+// 業務邏輯：
+//   - 將 opts 直接傳入 repository.Find，支援 PaginationOpt / EagerAll / GormOpt 等組合。
+//   - 失敗時記錄錯誤後回傳 nil；成功回傳 repository 結果（可為空 slice）。
+//
+// 參數：
+//   - opts: 可選的 DatabaseQueryOption[*models.SiteSetting] 變參。
+//
+// 回傳：
+//   - []*models.SiteSetting：符合 opts 的查詢結果；查詢錯誤時為 nil。
 func (s *ExampleService) FindSettings(opts ...models.DatabaseQueryOption[*models.SiteSetting]) []*models.SiteSetting {
-	kklogger.InfoJ("services:ExampleService.FindSettings#fetch!start", nil)
-
-	results, err := s._Deps().SiteSettingRepo.Find(opts...)
+	results, err := s.SiteSettingRepository().Find(opts...)
 	if err != nil {
 		kklogger.ErrorJ("services:ExampleService.FindSettings#fetch!db_error", err.Error())
 		return nil
@@ -126,19 +134,18 @@ func (s *ExampleService) FindSettings(opts ...models.DatabaseQueryOption[*models
 	return results
 }
 
-// ListSettingsWithTags returns all settings with their Tags pre-loaded in batch.
-// Uses EagerAll to fetch Settings + Tags in 2 queries total (N+1-free).
+// ListSettingsWithTags 一次取出所有 SiteSetting 並批次預載 Tags。
 //
-// Example:
+// 業務邏輯：
+//   - 透過 EagerAll 觸發 repository 的批次預載，避免 N+1 查詢。
+//   - DB 查詢錯誤時記錄後回傳 nil。
+//   - EagerAll 內單一關聯預載失敗僅記錄 log，並把該關聯快取設為空 slice／nil；
+//     後續 lazy getter 不會再重試該關聯。
 //
-//	svc := &ExampleService{}
-//	for _, s := range svc.ListSettingsWithTags() {
-//	    fmt.Println(s.Category, s.Key, s.Tags())
-//	}
+// 回傳：
+//   - []*models.SiteSetting：每筆已預載 Tags() 的結果，無資料時為空 slice。
 func (s *ExampleService) ListSettingsWithTags() []*models.SiteSetting {
-	kklogger.InfoJ("services:ExampleService.ListSettingsWithTags#fetch!start", nil)
-
-	results, err := s._Deps().SiteSettingRepo.Find(models.EagerAll[*models.SiteSetting]())
+	results, err := s.SiteSettingRepository().Find(models.EagerAll[*models.SiteSetting]())
 	if err != nil {
 		kklogger.ErrorJ("services:ExampleService.ListSettingsWithTags#fetch!db_error", err.Error())
 		return nil
@@ -147,18 +154,66 @@ func (s *ExampleService) ListSettingsWithTags() []*models.SiteSetting {
 	return results
 }
 
-// UpdateTx updates a site setting within the provided transaction.
-// The "Tx" suffix signals that this method participates in an external transaction.
+// UpdateSettingTx 在外部 transaction 內以 GORM Updates 更新 SiteSetting。
 //
-// Returns (rowsAffected, hasError).
-func (s *ExampleService) UpdateTx(tx *gorm.DB, setting *models.SiteSetting) (rowsAffected int64, hasError bool) {
-	kklogger.InfoJ("services:ExampleService.UpdateTx#update!start", map[string]any{"id": setting.ID})
-
+// 業務邏輯：
+//   - 直接呼叫 tx.Model(setting).Updates(setting)；GORM 僅更新非零值欄位。
+//   - 任何 DB error 都記錄後以 hasError=true 回傳，呼叫端可立即 rollback。
+//
+// 參數：
+//   - tx: 外部 GORM transaction（非 nil）。
+//   - setting: 要更新的 SiteSetting，ID 必須非零。
+//
+// 回傳：
+//   - rowsAffected: 受影響的列數。
+//   - hasError: true 表示更新時發生 DB error。
+func (s *ExampleService) UpdateSettingTx(tx *gorm.DB, setting *models.SiteSetting) (rowsAffected int64, hasError bool) {
 	result := tx.Model(setting).Updates(setting)
 	if result.Error != nil {
-		kklogger.ErrorJ("services:ExampleService.UpdateTx#update!db_error", result.Error.Error())
+		kklogger.ErrorJ("services:ExampleService.UpdateSettingTx#update!db_error", result.Error.Error())
 		return 0, true
 	}
 
 	return result.RowsAffected, false
+}
+
+// GetMaintenanceLog 透過 Cassandra repository 以 (type, key) 取單筆 MaintenanceLog。
+//
+// 業務邏輯：
+//   - keyspaces 未啟用時回傳 nil（不呼叫底層 session）。
+//   - 啟用時委派給 MaintenanceLogRepository.Get；查無資料時回傳 nil。
+//
+// 參數：
+//   - typ: log 類型欄位（例如 "deploy"、"alert"）。
+//   - key: 同一類型下的唯一索引（例如時間戳或 ID）。
+//
+// 回傳：
+//   - *models.MaintenanceLog：對應記錄；查無時為 nil。
+func (s *ExampleService) GetMaintenanceLog(typ, key string) *models.MaintenanceLog {
+	if s._Deps().CassandraSession == nil || s._Deps().CassandraSession() == nil {
+		return nil
+	}
+
+	return s.MaintenanceLogRepository().Get(typ, key)
+}
+
+// ListMaintenanceLogs 取得指定類型的全部 MaintenanceLog 並回傳分頁狀態。
+//
+// 業務邏輯：
+//   - keyspaces 未啟用時回傳空 slice 與零值 result（不呼叫底層 session）。
+//   - 啟用時將 opts 傳入 MaintenanceLogRepository.GetAll，支援 PageState / Limit。
+//
+// 參數：
+//   - typ: log 類型欄位。
+//   - opts: 可選的 CassandraQueryOption（例如 CassandraQueryLimit、CassandraQueryNext）。
+//
+// 回傳：
+//   - logs: 查詢結果切片，無資料時為空 slice。
+//   - result: 包含 NextId 與分頁中繼資料，可呼叫 result.Next() 取下一頁。
+func (s *ExampleService) ListMaintenanceLogs(typ string, opts ...models.CassandraQueryOption) (logs []*models.MaintenanceLog, result models.CassandraQueryResult[*models.MaintenanceLog]) {
+	if s._Deps().CassandraSession == nil || s._Deps().CassandraSession() == nil {
+		return []*models.MaintenanceLog{}, models.CassandraQueryResult[*models.MaintenanceLog]{}
+	}
+
+	return s.MaintenanceLogRepository().GetAll(typ, opts...)
 }

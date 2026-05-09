@@ -121,7 +121,7 @@ func _GetLazyMeta(modelType reflect.Type, fieldName string) *_LazyMeta {
 }
 
 func _ParseGormTagValue(tag, key string) string {
-	for _, part := range strings.Split(tag, ";") {
+	for part := range strings.SplitSeq(tag, ";") {
 		kv := strings.SplitN(part, ":", 2)
 		if len(kv) == 2 && strings.TrimSpace(kv[0]) == key {
 			return strings.TrimSpace(kv[1])
@@ -455,11 +455,15 @@ func ResolveHasMany[T any](model any, fieldName string) []*T {
 }
 
 // _ToSnakeCase converts a CamelCase identifier to snake_case.
+// Consecutive uppercase letters (e.g. "ID", "URL") are treated as a single word:
+//
+//	FieldID  → field_id
+//	ABCTest  → abc_test
 func _ToSnakeCase(s string) string {
 	n := len(s)
 	result := make([]byte, 0, n+4)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		c := s[i]
 		if c >= 'A' && c <= 'Z' {
 			if i > 0 {
@@ -525,11 +529,11 @@ func _GetCompositeBatchQuerierForType(t reflect.Type) CompositeBatchQuerier {
 	return nil
 }
 
-// _autoEagerLoad is the reflect-based entry point called by EagerAll[T]().
+// _AutoEagerLoad is the reflect-based entry point called by EagerAll[T]().
 // T must be a pointer model type (e.g. *SiteSetting).
 // Scans all unexported struct fields with gorm foreignKey tags and issues
 // batch IN queries per association instead of per-record lazy loads.
-func _autoEagerLoad[T any](items []T) {
+func _AutoEagerLoad[T any](items []T) {
 	if len(items) == 0 {
 		return
 	}
@@ -546,9 +550,7 @@ func _autoEagerLoad[T any](items []T) {
 		rvItems[i] = reflect.ValueOf(item)
 	}
 
-	// Go 1.24 compatible: use NumField() loop instead of Fields() iterator
-	for i := 0; i < modelType.NumField(); i++ {
-		field := modelType.Field(i)
+	for field := range modelType.Fields() {
 		if field.IsExported() {
 			continue
 		}
@@ -571,22 +573,22 @@ func _autoEagerLoad[T any](items []T) {
 				}
 			}
 			if isBelongsTo {
-				_eagerBelongsTo(rvItems, field, fkFieldName, field.Type.Elem())
+				_EagerBelongsTo(rvItems, field, fkFieldName, field.Type.Elem())
 			}
 		case reflect.Slice:
 			if field.Type.Elem().Kind() == reflect.Pointer {
 				if strings.Contains(fkFieldName, ",") {
-					_eagerHasManyComposite(rvItems, field, fkFieldName, refFieldName, field.Type.Elem().Elem())
+					_EagerHasManyComposite(rvItems, field, fkFieldName, refFieldName, field.Type.Elem().Elem())
 				} else {
-					_eagerHasMany(rvItems, field, fkFieldName, field.Type.Elem().Elem())
+					_EagerHasMany(rvItems, field, fkFieldName, field.Type.Elem().Elem())
 				}
 			}
 		}
 	}
 }
 
-// _eagerBelongsTo batch-loads a belongs-to association.
-func _eagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldName string, childType reflect.Type) {
+// _EagerBelongsTo batch-loads a belongs-to association.
+func _EagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldName string, childType reflect.Type) {
 	bq := _GetBatchQuerierForType(childType)
 	if bq == nil {
 		return
@@ -616,7 +618,7 @@ func _eagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldNa
 			fkVal = fkVal.Elem()
 		}
 
-		id := _extractUint64(fkVal)
+		id := _ExtractUint64(fkVal)
 		if id == 0 {
 			continue
 		}
@@ -628,17 +630,17 @@ func _eagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldNa
 		return
 	}
 
-	ids := _mapKeys(fkToItems)
+	ids := _MapKeys(fkToItems)
 	resultSlice := reflect.New(reflect.SliceOf(reflect.PointerTo(childType))).Elem()
 	if err := bq.FindByIds(resultSlice.Addr().Interface(), ids); err != nil {
-		kklogger.ErrorJ("models:_eagerBelongsTo#query", err.Error())
+		kklogger.ErrorJ("models:_EagerBelongsTo#query", err.Error())
 		return
 	}
 
 	childByID := make(map[uint64]reflect.Value, resultSlice.Len())
 	for i := 0; i < resultSlice.Len(); i++ {
 		c := resultSlice.Index(i)
-		childByID[_extractUint64(c.Elem().FieldByName("ID"))] = c
+		childByID[_ExtractUint64(c.Elem().FieldByName("ID"))] = c
 	}
 
 	setCacheName := "SetCache" + strings.TrimPrefix(field.Name, "_")
@@ -657,8 +659,8 @@ func _eagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldNa
 	}
 }
 
-// _eagerHasMany batch-loads a has-many association.
-func _eagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName string, childType reflect.Type) {
+// _EagerHasMany batch-loads a has-many association.
+func _EagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName string, childType reflect.Type) {
 	bq := _GetBatchQuerierForType(childType)
 	if bq == nil {
 		return
@@ -674,7 +676,7 @@ func _eagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName
 			continue
 		}
 
-		id := _extractUint64(mv.FieldByName("ID"))
+		id := _ExtractUint64(mv.FieldByName("ID"))
 		if id == 0 {
 			continue
 		}
@@ -686,16 +688,16 @@ func _eagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName
 		return
 	}
 
-	pks := _mapKeys(pkToItems)
+	pks := _MapKeys(pkToItems)
 	resultSlice := reflect.New(sliceType).Elem()
 	if err := bq.FindHasManyIn(resultSlice.Addr().Interface(), fkColumn, pks); err != nil {
-		kklogger.ErrorJ("models:_eagerHasMany#query", err.Error())
+		kklogger.ErrorJ("models:_EagerHasMany#query", err.Error())
 	}
 
 	groupByFK := make(map[uint64]reflect.Value)
 	for i := 0; i < resultSlice.Len(); i++ {
 		c := resultSlice.Index(i)
-		fkID := _extractUint64(c.Elem().FieldByName(fkFieldName))
+		fkID := _ExtractUint64(c.Elem().FieldByName(fkFieldName))
 		if _, exists := groupByFK[fkID]; !exists {
 			groupByFK[fkID] = reflect.MakeSlice(sliceType, 0, 1)
 		}
@@ -719,8 +721,8 @@ func _eagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName
 	}
 }
 
-// _eagerHasManyComposite batch-loads a has-many association with composite foreign keys.
-func _eagerHasManyComposite(items []reflect.Value, field reflect.StructField, fkFieldNameRaw string, refFieldNameRaw string, childType reflect.Type) {
+// _EagerHasManyComposite batch-loads a has-many association with composite foreign keys.
+func _EagerHasManyComposite(items []reflect.Value, field reflect.StructField, fkFieldNameRaw string, refFieldNameRaw string, childType reflect.Type) {
 	cbq := _GetCompositeBatchQuerierForType(childType)
 	if cbq == nil {
 		return
@@ -761,7 +763,7 @@ func _eagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 				}
 				refField = refField.Elem()
 			}
-			val := _extractUint64(refField)
+			val := _ExtractUint64(refField)
 			if val == 0 {
 				skip = true
 				break
@@ -791,7 +793,7 @@ func _eagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 
 	resultSlice := reflect.New(sliceType).Elem()
 	if err := cbq.FindHasManyInComposite(resultSlice.Addr().Interface(), fkColumns, compositeKeys); err != nil {
-		kklogger.ErrorJ("models:_eagerHasManyComposite#query", err.Error())
+		kklogger.ErrorJ("models:_EagerHasManyComposite#query", err.Error())
 	}
 
 	groupByKey := make(map[string]reflect.Value)
@@ -799,7 +801,7 @@ func _eagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 		c := resultSlice.Index(i)
 		keyParts := make([]string, len(fkNames))
 		for j, fk := range fkNames {
-			val := _extractUint64(c.Elem().FieldByName(fk))
+			val := _ExtractUint64(c.Elem().FieldByName(fk))
 			keyParts[j] = strconv.FormatUint(val, 10)
 		}
 
@@ -827,8 +829,10 @@ func _eagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 	}
 }
 
-// _extractUint64 extracts a uint64 from a reflect.Value.
-func _extractUint64(v reflect.Value) uint64 {
+// _ExtractUint64 extracts a uint64 from a reflect.Value.
+// Supports model ID types that expose a UInt64() method, and unsigned int kinds.
+// Signed int kinds are not supported — v.Uint() panics for them.
+func _ExtractUint64(v reflect.Value) uint64 {
 	if m := v.MethodByName("UInt64"); m.IsValid() {
 		return m.Call(nil)[0].Uint()
 	}
@@ -836,8 +840,8 @@ func _extractUint64(v reflect.Value) uint64 {
 	return v.Uint()
 }
 
-// _mapKeys returns the keys of a map[uint64]V as a []uint64 slice.
-func _mapKeys[V any](m map[uint64]V) []uint64 {
+// _MapKeys returns the keys of a map[uint64]V as a []uint64 slice.
+func _MapKeys[V any](m map[uint64]V) []uint64 {
 	keys := make([]uint64, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -848,18 +852,17 @@ func _mapKeys[V any](m map[uint64]V) []uint64 {
 
 // ValidateLazyTags checks all unexported fields with gorm foreignKey tags
 // to ensure the referenced FK field exists on the struct.
-// Go 1.24 compatible: uses NumField() loop instead of Fields() iterator.
+// Call at init() time to fail fast on misconfigured tags.
 func ValidateLazyTags[T any]() {
 	t := reflect.TypeFor[T]()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
+	for field := range t.Fields() {
 		gormTag := field.Tag.Get("gorm")
 		fk := _ParseGormTagValue(gormTag, "foreignKey")
 		if fk == "" {
 			continue
 		}
 
-		for _, part := range strings.Split(fk, ",") {
+		for part := range strings.SplitSeq(fk, ",") {
 			part = strings.TrimSpace(part)
 			if _, ok := t.FieldByName(part); !ok {
 				panic("models: lazy field " + t.Name() + "." + field.Name +
@@ -869,7 +872,7 @@ func ValidateLazyTags[T any]() {
 
 		ref := _ParseGormTagValue(gormTag, "references")
 		if ref != "" {
-			for _, part := range strings.Split(ref, ",") {
+			for part := range strings.SplitSeq(ref, ",") {
 				part = strings.TrimSpace(part)
 				if _, ok := t.FieldByName(part); !ok {
 					panic("models: lazy field " + t.Name() + "." + field.Name +

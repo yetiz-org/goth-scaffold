@@ -7,12 +7,18 @@ import (
 )
 
 type SiteSettingTagRepository struct {
-	*DatabaseDefaultRepository[models.SiteSettingTagId, *models.SiteSettingTag]
+	models.DatabaseRepository[models.SiteSettingTagId, *models.SiteSettingTag]
 }
 
 func NewSiteSettingTagRepository(db *gorm.DB) models.SiteSettingTagRepository {
 	return &SiteSettingTagRepository{
 		NewDatabaseDefaultRepository[models.SiteSettingTagId, *models.SiteSettingTag](db),
+	}
+}
+
+func NewSiteSettingTagRepositoryF(dbFunc func() *gorm.DB) models.SiteSettingTagRepository {
+	return &SiteSettingTagRepository{
+		NewDatabaseDefaultRepositoryF[models.SiteSettingTagId, *models.SiteSettingTag](dbFunc),
 	}
 }
 

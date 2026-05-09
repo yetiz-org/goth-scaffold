@@ -198,7 +198,7 @@ func LimitOpt[T any](limit int) DatabaseQueryOption[T] {
 // EagerAll returns a DatabaseQueryOption that auto-scans all lazy associations and
 // batch-preloads them. Preloading is opt-in: it only runs when this option is passed.
 func EagerAll[T any]() DatabaseQueryOption[T] {
-	return DatabaseQueryOption[T]{_LoadFn: _autoEagerLoad[T]}
+	return DatabaseQueryOption[T]{_LoadFn: _AutoEagerLoad[T]}
 }
 
 // SelectOpt restricts the query to specific columns. The primary key (id) is always included.

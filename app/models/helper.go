@@ -69,7 +69,7 @@ func ValidateColumnLength(model any) error {
 			continue
 		}
 
-		sizeStr := gormTagValue(gormTag, "size")
+		sizeStr := _GormTagValue(gormTag, "size")
 		if sizeStr == "" {
 			continue
 		}
@@ -99,7 +99,7 @@ func ValidateColumnLength(model any) error {
 			continue
 		}
 
-		columnName := gormTagValue(gormTag, "column")
+		columnName := _GormTagValue(gormTag, "column")
 		if columnName == "" {
 			columnName = field.Name
 		}
@@ -115,9 +115,8 @@ func ValidateColumnLength(model any) error {
 	return nil
 }
 
-func gormTagValue(tag string, key string) string {
-	parts := strings.Split(tag, ";")
-	for _, part := range parts {
+func _GormTagValue(tag string, key string) string {
+	for part := range strings.SplitSeq(tag, ";") {
 		if after, ok := strings.CutPrefix(part, key+":"); ok {
 			return after
 		}
@@ -167,15 +166,15 @@ func (t *TimeOfDay) Scan(value any) error {
 		t.Time = v
 		return nil
 	case []byte:
-		return t.parseString(string(v))
+		return t._ParseString(string(v))
 	case string:
-		return t.parseString(v)
+		return t._ParseString(v)
 	default:
 		return fmt.Errorf("invalid time value: %T", value)
 	}
 }
 
-func (t *TimeOfDay) parseString(value string) error {
+func (t *TimeOfDay) _ParseString(value string) error {
 	if value == "" {
 		t.Time = time.Time{}
 		return nil
@@ -199,6 +198,25 @@ func (t TimeOfDay) Value() (driver.Value, error) {
 	return t.Time.Format("15:04:05"), nil
 }
 
+// MarshalText implements encoding.TextMarshaler for MySQL TIME format "HH:MM:SS".
+func (t TimeOfDay) MarshalText() ([]byte, error) {
+	if t.Time.IsZero() {
+		return []byte("00:00:00"), nil
+	}
+
+	return []byte(t.Time.Format("15:04:05")), nil
+}
+
+// MarshalJSON implements json.Marshaler for MySQL TIME format "HH:MM:SS".
+func (t TimeOfDay) MarshalJSON() ([]byte, error) {
+	text, err := t.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(string(text))
+}
+
 // UnmarshalJSON implements json.Unmarshaler for MySQL TIME format "HH:MM:SS".
 func (t *TimeOfDay) UnmarshalJSON(data []byte) error {
 	s := strings.Trim(string(data), `"`)
@@ -207,7 +225,7 @@ func (t *TimeOfDay) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	return t.parseString(s)
+	return t._ParseString(s)
 }
 
 type Scope Privileges
@@ -219,7 +237,7 @@ func (s Scope) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
-func (s *Scope) Scan(value interface{}) error {
+func (s *Scope) Scan(value any) error {
 	if value == nil {
 		*s = nil
 		return nil
@@ -339,7 +357,7 @@ func (p Privileges) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
-func (p *Privileges) Scan(value interface{}) error {
+func (p *Privileges) Scan(value any) error {
 	if value == nil {
 		*p = nil
 		return nil

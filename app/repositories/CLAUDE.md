@@ -2,19 +2,27 @@
 
 ## Pattern
 
-Embed `*DatabaseDefaultRepository[K, *models.Model]` — do not reimplement Find/First/Save.
+Embed the matching repository interface from `app/models` (`models.DatabaseRepository[K, T]` for SQL, `models.CassandraRepository[T]` for Cassandra) and populate it via `NewDatabaseDefaultRepository` / `NewDatabaseDefaultRepositoryF`. Do not reimplement Find/First/Save.
 
 ```go
 type FooRepository struct {
-	*DatabaseDefaultRepository[FooId, *models.Foo]
+	models.DatabaseRepository[FooId, *models.Foo]
 }
 
 func NewFooRepository(db *gorm.DB) *FooRepository {
 	return &FooRepository{
-		DatabaseDefaultRepository: NewDatabaseDefaultRepository[FooId, *models.Foo](db),
+		NewDatabaseDefaultRepository[FooId, *models.Foo](db),
+	}
+}
+
+func NewFooRepositoryF(dbFunc func() *gorm.DB) *FooRepository {
+	return &FooRepository{
+		NewDatabaseDefaultRepositoryF[FooId, *models.Foo](dbFunc),
 	}
 }
 ```
+
+Use the `*F` constructor when the service layer holds DB accessor function references (`database.Reader` / `database.Writer`) so connection lookup defers to query time instead of running at package init.
 
 ## Method Rules
 
@@ -72,16 +80,22 @@ Do NOT reimplement these — they are provided by the embedded struct:
 
 ## Cassandra Repositories
 
-For Cassandra models, embed `*CassandraDefaultRepository[T]` instead of `DatabaseDefaultRepository`:
+For Cassandra models, embed `models.CassandraRepository[T]` and populate it via `NewCassandraDefaultRepository` / `NewCassandraDefaultRepositoryF`:
 
 ```go
 type FooRepository struct {
-	*repositories.CassandraDefaultRepository[*models.Foo]
+	models.CassandraRepository[*models.Foo]
 }
 
 func NewFooRepository(session *gocql.Session) *FooRepository {
 	return &FooRepository{
-		CassandraDefaultRepository: repositories.NewCassandraDefaultRepository[*models.Foo](session),
+		NewCassandraDefaultRepository[*models.Foo](session),
+	}
+}
+
+func NewFooRepositoryF(sessionFunc func() *gocql.Session) *FooRepository {
+	return &FooRepository{
+		NewCassandraDefaultRepositoryF[*models.Foo](sessionFunc),
 	}
 }
 ```

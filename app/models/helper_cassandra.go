@@ -85,18 +85,18 @@ func (q *CassandraQueryNext) Operate(query *gocql.Query) {
 	}
 }
 
-func scanNext[T Model](iter *gocql.Iter) (instance T, ok bool) {
+func _ScanNext[T Model](iter *gocql.Iter) (instance T, ok bool) {
 	instance = reflect.New(reflect.New(reflect.TypeOf(*new(T))).Elem().Type().Elem()).Interface().(T)
 	if model, isCustomScan := any(instance).(CassandraModelScan); isCustomScan {
 		ok = model.Scan(iter)
 	} else {
-		ok = scan(iter, instance)
+		ok = _Scan(iter, instance)
 	}
 
 	return instance, ok
 }
 
-func scan(iter *gocql.Iter, m any) bool {
+func _Scan(iter *gocql.Iter, m any) bool {
 	maps := map[string]any{}
 	if !iter.MapScan(maps) {
 		return false
@@ -110,7 +110,7 @@ func scan(iter *gocql.Iter, m any) bool {
 	return true
 }
 
-func prepareQuery(query *gocql.Query, opts ...CassandraQueryOption) *gocql.Query {
+func _PrepareQuery(query *gocql.Query, opts ...CassandraQueryOption) *gocql.Query {
 	query = query.WithContext(context.WithValue(context.Background(), CassandraQueryOptionFlag, map[string]any{}))
 	for _, opt := range opts {
 		opt.Operate(query)
@@ -120,11 +120,11 @@ func prepareQuery(query *gocql.Query, opts ...CassandraQueryOption) *gocql.Query
 }
 
 func CassandraQueryFinalizeFirst[T Model](session *gocql.Session, stmt string, args []any, opts ...CassandraQueryOption) (object T) {
-	query := prepareQuery(session.Query(stmt, args...), append(opts, &CassandraQueryLimit{Limit: 1})...)
+	query := _PrepareQuery(session.Query(stmt, args...), append(opts, &CassandraQueryLimit{Limit: 1})...)
 	iter := query.Iter()
 	defer CassandraCloseIter(iter)
 
-	if instance, ok := scanNext[T](iter); ok {
+	if instance, ok := _ScanNext[T](iter); ok {
 		object = instance
 	}
 
@@ -132,12 +132,12 @@ func CassandraQueryFinalizeFirst[T Model](session *gocql.Session, stmt string, a
 }
 
 func CassandraQueryFinalize[T Model](session *gocql.Session, stmt string, args []any, opts ...CassandraQueryOption) (objects []T, result CassandraQueryResult[T]) {
-	query := prepareQuery(session.Query(stmt, args...), opts...)
+	query := _PrepareQuery(session.Query(stmt, args...), opts...)
 	objects = make([]T, 0)
 	iter := query.Iter()
 	defer CassandraCloseIter(iter)
 
-	for instance, ok := scanNext[T](iter); ok; instance, ok = scanNext[T](iter) {
+	for instance, ok := _ScanNext[T](iter); ok; instance, ok = _ScanNext[T](iter) {
 		objects = append(objects, instance)
 	}
 
@@ -146,27 +146,27 @@ func CassandraQueryFinalize[T Model](session *gocql.Session, stmt string, args [
 	}
 
 	result.Count = len(objects)
-	result.session = session
-	result.queryOptions = opts
-	result.query = query
+	result._Session = session
+	result._QueryOptions = opts
+	result._Query = query
 	return
 }
 
 type CassandraQueryResult[T Model] struct {
-	Count        int    `json:"count"`
-	NextId       string `json:"next_id"`
-	session      *gocql.Session
-	queryOptions []CassandraQueryOption
-	query        *gocql.Query
+	Count         int    `json:"count"`
+	NextId        string `json:"next_id"`
+	_Session      *gocql.Session
+	_QueryOptions []CassandraQueryOption
+	_Query        *gocql.Query
 }
 
 func (q *CassandraQueryResult[T]) Next(session ...*gocql.Session) (objects []T, result CassandraQueryResult[T]) {
-	if q.query == nil || q.NextId == "" {
+	if q._Query == nil || q.NextId == "" {
 		return
 	}
 
 	newQueryOptions := make([]CassandraQueryOption, 0)
-	for _, opt := range q.queryOptions {
+	for _, opt := range q._QueryOptions {
 		if _, ok := opt.(*CassandraQueryNext); ok {
 			continue
 		}
@@ -174,13 +174,13 @@ func (q *CassandraQueryResult[T]) Next(session ...*gocql.Session) (objects []T, 
 		newQueryOptions = append(newQueryOptions, opt)
 	}
 
-	sess := q.session
+	sess := q._Session
 	if len(session) > 0 {
 		sess = session[0]
 	}
 
 	newQueryOptions = append(newQueryOptions, &CassandraQueryNext{Next: q.NextId})
-	return CassandraQueryFinalize[T](sess, q.query.Statement(), q.query.Values(), newQueryOptions...)
+	return CassandraQueryFinalize[T](sess, q._Query.Statement(), q._Query.Values(), newQueryOptions...)
 }
 
 func CassandraCloseIter(iter *gocql.Iter) {
@@ -192,88 +192,88 @@ func CassandraCloseIter(iter *gocql.Iter) {
 }
 
 type CassandraQueryBuilder[T Model] struct {
-	session      *gocql.Session
-	fields       []string
-	conditions   map[string]any
-	orders       []string
-	queryOptions []CassandraQueryOption
-	limit        int
-	nextId       string
+	_Session      *gocql.Session
+	_Fields       []string
+	_Conditions   map[string]any
+	_Orders       []string
+	_QueryOptions []CassandraQueryOption
+	_Limit        int
+	_NextId       string
 }
 
 func NewCassandraQueryBuilder[T Model](session *gocql.Session) *CassandraQueryBuilder[T] {
-	return &CassandraQueryBuilder[T]{session: session, conditions: map[string]any{}}
+	return &CassandraQueryBuilder[T]{_Session: session, _Conditions: map[string]any{}}
 }
 
 func (b *CassandraQueryBuilder[T]) Fields(fields ...string) *CassandraQueryBuilder[T] {
-	b.fields = fields
+	b._Fields = fields
 	return b
 }
 
 func (b *CassandraQueryBuilder[T]) Where(condition string, arg any) *CassandraQueryBuilder[T] {
-	b.conditions[condition] = arg
+	b._Conditions[condition] = arg
 	return b
 }
 
 func (b *CassandraQueryBuilder[T]) Order(order string) *CassandraQueryBuilder[T] {
-	b.orders = append(b.orders, order)
+	b._Orders = append(b._Orders, order)
 	return b
 }
 
 func (b *CassandraQueryBuilder[T]) Limit(limit int) *CassandraQueryBuilder[T] {
-	b.limit = limit
+	b._Limit = limit
 	return b
 }
 
 func (b *CassandraQueryBuilder[T]) Next(nextId string) *CassandraQueryBuilder[T] {
-	b.nextId = nextId
+	b._NextId = nextId
 	return b
 }
 
-func (b *CassandraQueryBuilder[T]) buildQuery() (stmt string, args []any) {
+func (b *CassandraQueryBuilder[T]) _BuildQuery() (stmt string, args []any) {
 	stmt = "SELECT "
 	args = make([]any, 0)
 
-	if len(b.fields) > 0 {
-		stmt += strings.Join(b.fields, ",")
+	if len(b._Fields) > 0 {
+		stmt += strings.Join(b._Fields, ",")
 	} else {
 		stmt += "*"
 	}
 
 	stmt += " FROM " + (reflect.New(reflect.New(reflect.TypeOf(*new(T))).Elem().Type().Elem()).Interface()).(T).TableName()
 
-	if len(b.conditions) > 0 {
+	if len(b._Conditions) > 0 {
 		conditions := make([]string, 0)
-		for k, v := range b.conditions {
+		for k, v := range b._Conditions {
 			conditions = append(conditions, k)
 			args = append(args, v)
 		}
 		stmt += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	if len(b.orders) > 0 {
-		stmt += " ORDER BY " + strings.Join(b.orders, ",")
+	if len(b._Orders) > 0 {
+		stmt += " ORDER BY " + strings.Join(b._Orders, ",")
 	}
 
 	return stmt, args
 }
 
 func (b *CassandraQueryBuilder[T]) First() (object T) {
-	stmt, args := b.buildQuery()
-	return CassandraQueryFinalizeFirst[T](b.session, stmt, args, &CassandraQueryLimit{Limit: 1})
+	stmt, args := b._BuildQuery()
+	return CassandraQueryFinalizeFirst[T](b._Session, stmt, args, &CassandraQueryLimit{Limit: 1})
 }
 
 func (b *CassandraQueryBuilder[T]) Fetch(queryOptions ...CassandraQueryOption) (objects []T, result CassandraQueryResult[T]) {
-	stmt, args := b.buildQuery()
+	stmt, args := b._BuildQuery()
 	qos := make([]CassandraQueryOption, 0)
-	if b.limit > 0 {
-		qos = append(qos, &CassandraQueryLimit{Limit: b.limit})
+	if b._Limit > 0 {
+		qos = append(qos, &CassandraQueryLimit{Limit: b._Limit})
 	}
 
-	if b.nextId != "" {
-		qos = append(qos, &CassandraQueryNext{Next: b.nextId})
+	if b._NextId != "" {
+		qos = append(qos, &CassandraQueryNext{Next: b._NextId})
 	}
 
 	qos = append(qos, queryOptions...)
-	return CassandraQueryFinalize[T](b.session, stmt, args, qos...)
+	return CassandraQueryFinalize[T](b._Session, stmt, args, qos...)
 }
