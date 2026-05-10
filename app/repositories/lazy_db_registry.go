@@ -64,8 +64,6 @@ func (q *_GormQuerier) FindHasManyInComposite(dest any, fkColumns []string, comp
 }
 
 func init() {
-	if database.Enabled() {
-		q := &_GormQuerier{_DbFn: database.Reader}
-		models.RegisterLazyQuerier(q)
-	}
+	q := &_GormQuerier{_DbFn: database.Reader}
+	models.RegisterLazyQuerier(q)
 }
