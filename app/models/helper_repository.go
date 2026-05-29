@@ -197,8 +197,38 @@ func LimitOpt[T any](limit int) DatabaseQueryOption[T] {
 
 // EagerAll returns a DatabaseQueryOption that auto-scans all lazy associations and
 // batch-preloads them. Preloading is opt-in: it only runs when this option is passed.
+//
+// EagerAll loads every lazy field carrying a foreignKey tag, which suits single-record
+// queries that need the full object graph. For list endpoints prefer Eager(...) with only
+// the fields the response actually reads, so unused associations don't each cost an IN query.
 func EagerAll[T any]() DatabaseQueryOption[T] {
 	return DatabaseQueryOption[T]{_LoadFn: _AutoEagerLoad[T]}
+}
+
+// Eager batch-preloads only the named lazy fields (the rest stay lazy). Field names are the
+// PascalCase form with the leading underscore stripped (`_Tags` → "Tags"). A field must carry
+// a `gorm:"foreignKey:..."` tag to be eligible; a misspelled name is silently skipped and that
+// association degrades to N+1, so keep the names aligned with the response's lazy reads.
+//
+// Use EagerAll when every lazy field is needed; do not enumerate them by hand.
+//
+//	settings := repo.Find(
+//	    models.PaginationOpt[*models.SiteSetting](offset, limit),
+//	    models.Eager[*models.SiteSetting]("Tags"),
+//	)
+func Eager[T any](fieldNames ...string) DatabaseQueryOption[T] {
+	if len(fieldNames) == 0 {
+		return DatabaseQueryOption[T]{}
+	}
+
+	allowed := make(map[string]struct{}, len(fieldNames))
+	for _, n := range fieldNames {
+		allowed[strings.TrimPrefix(n, "_")] = struct{}{}
+	}
+
+	return DatabaseQueryOption[T]{_LoadFn: func(items []T) {
+		_AutoEagerLoadFiltered(items, allowed)
+	}}
 }
 
 // SelectOpt restricts the query to specific columns. The primary key (id) is always included.

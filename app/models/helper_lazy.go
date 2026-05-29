@@ -22,7 +22,7 @@ type LazyQuerier interface {
 	FindHasOne(dest any, fkColumn string, fkValue any) error
 }
 
-// _LazyMeta holds parsed GORM association tag metadata, cached per model+field.
+// _LazyMeta holds parsed association tag metadata, cached per model+field.
 type _LazyMeta struct {
 	FKFieldName  string
 	RefFieldName string
@@ -30,6 +30,8 @@ type _LazyMeta struct {
 
 	FKFieldNames  []string
 	RefFieldNames []string
+
+	ScopeName string // `scope:"<name>"` — resolved at load time via _ResolveLazyScope
 }
 
 func (m *_LazyMeta) _IsComposite() bool { return len(m.FKFieldNames) > 1 }
@@ -107,8 +109,10 @@ func _GetLazyMeta(modelType reflect.Type, fieldName string) *_LazyMeta {
 		RefFieldName:  refNames[0],
 		FKFieldNames:  fkNames,
 		RefFieldNames: refNames,
+		ScopeName:     field.Tag.Get("scope"),
 	}
 
+	// FKIsPtr only meaningful for single FK (belongs-to).
 	if !meta._IsComposite() {
 		if fkField, ok := modelType.FieldByName(meta.FKFieldName); ok {
 			meta.FKIsPtr = fkField.Type.Kind() == reflect.Pointer
@@ -229,46 +233,38 @@ func LazyHasMany[T any](model any, field *[]*T, opts ...DatabaseQueryOption[*T])
 
 		meta := _GetLazyMeta(modelVal.Type(), fieldName)
 		childType := reflect.TypeFor[T]()
-		var results []*T
-		if meta._IsComposite() {
-			cq := _GetCompositeQuerierForType(childType)
-			if cq == nil {
-				return []*T{}
-			}
+		scope := _ResolveLazyScope(meta.ScopeName)
 
-			conditions := make(map[string]any, len(meta.FKFieldNames))
-			for i, fkName := range meta.FKFieldNames {
-				col := _ChildColumn(childType, fkName)
-				refField := modelVal.FieldByName(meta.RefFieldNames[i])
-				if refField.Kind() == reflect.Pointer {
-					if refField.IsNil() {
-						return []*T{}
-					}
-					refField = refField.Elem()
-				}
-				conditions[col] = refField.Interface()
-			}
-
-			if err := cq.FindHasManyComposite(&results, conditions); err != nil {
-				kklogger.ErrorJ("models:LazyHasMany#composite_query", err.Error())
-				return []*T{}
-			}
+		conditions, ok := _BuildFKConditions(modelVal, meta, childType)
+		if !ok {
+			*field = []*T{}
 		} else {
-			fkColumn := _ChildColumn(childType, meta.FKFieldName)
-			q := _GetQuerierForType(childType)
-			if q == nil {
-				return []*T{}
+			var results []*T
+			if meta._IsComposite() || len(scope) > 0 {
+				cq := _GetCompositeQuerierForType(childType)
+				if cq == nil {
+					return []*T{}
+				}
+
+				if err := cq.FindHasManyComposite(&results, conditions, scope...); err != nil {
+					kklogger.ErrorJ("models:LazyHasMany#composite_query", err.Error())
+					return []*T{}
+				}
+			} else {
+				q := _GetQuerierForType(childType)
+				if q == nil {
+					return []*T{}
+				}
+
+				fkColumn := _ChildColumn(childType, meta.FKFieldName)
+				if err := q.FindHasMany(&results, fkColumn, conditions[fkColumn]); err != nil {
+					kklogger.ErrorJ("models:LazyHasMany#query", err.Error())
+					return []*T{}
+				}
 			}
 
-			refField := modelVal.FieldByName(meta.RefFieldName)
-			pkValue := refField.Interface()
-			if err := q.FindHasMany(&results, fkColumn, pkValue); err != nil {
-				kklogger.ErrorJ("models:LazyHasMany#query", err.Error())
-				return []*T{}
-			}
+			*field = results
 		}
-
-		*field = results
 	}
 
 	results := *field
@@ -298,46 +294,34 @@ func LazyHasOne[T any](model any, field **T, opts ...DatabaseQueryOption[*T]) *T
 
 		meta := _GetLazyMeta(modelVal.Type(), fieldName)
 		childType := reflect.TypeFor[T]()
+		scope := _ResolveLazyScope(meta.ScopeName)
+
+		conditions, ok := _BuildFKConditions(modelVal, meta, childType)
+		if !ok {
+			return nil
+		}
 
 		var result *T
-
-		if meta._IsComposite() {
+		if meta._IsComposite() || len(scope) > 0 {
 			cq := _GetCompositeQuerierForType(childType)
 			if cq == nil {
 				return nil
 			}
 
-			conditions := make(map[string]any, len(meta.FKFieldNames))
-			for i, fkName := range meta.FKFieldNames {
-				col := _ChildColumn(childType, fkName)
-				refField := modelVal.FieldByName(meta.RefFieldNames[i])
-				if refField.Kind() == reflect.Pointer {
-					if refField.IsNil() {
-						return nil
-					}
-					refField = refField.Elem()
-				}
-				conditions[col] = refField.Interface()
-			}
-
 			result = new(T)
-			if err := cq.FindHasOneComposite(result, conditions); err != nil {
+			if err := cq.FindHasOneComposite(result, conditions, scope...); err != nil {
 				kklogger.ErrorJ("models:LazyHasOne#composite_query", err.Error())
 				return nil
 			}
 		} else {
-			refField := modelVal.FieldByName(meta.RefFieldName)
-			pkValue := refField.Interface()
-
-			fkColumn := _ChildColumn(childType, meta.FKFieldName)
-
 			q := _GetQuerierForType(childType)
 			if q == nil {
 				return nil
 			}
 
+			fkColumn := _ChildColumn(childType, meta.FKFieldName)
 			result = new(T)
-			if err := q.FindHasOne(result, fkColumn, pkValue); err != nil {
+			if err := q.FindHasOne(result, fkColumn, conditions[fkColumn]); err != nil {
 				return nil
 			}
 		}
@@ -380,6 +364,27 @@ func LazyBelongsTo[T any](model any, field **T, opts ...DatabaseQueryOption[*T])
 	}
 
 	return *field
+}
+
+// _BuildFKConditions resolves the parent's reference values into a child-column→value
+// map. Returns (nil, false) when any required reference is a nil pointer so the caller
+// can short-circuit to an empty result.
+func _BuildFKConditions(modelVal reflect.Value, meta *_LazyMeta, childType reflect.Type) (map[string]any, bool) {
+	conditions := make(map[string]any, len(meta.FKFieldNames))
+	for i, fkName := range meta.FKFieldNames {
+		refField := modelVal.FieldByName(meta.RefFieldNames[i])
+		if refField.Kind() == reflect.Pointer {
+			if refField.IsNil() {
+				return nil, false
+			}
+
+			refField = refField.Elem()
+		}
+
+		conditions[_ChildColumn(childType, fkName)] = refField.Interface()
+	}
+
+	return conditions, true
 }
 
 // _FindFieldByAddr finds the field name in modelVal whose address matches targetAddr.
@@ -500,17 +505,21 @@ func _GetBatchQuerierForType(t reflect.Type) BatchQuerier {
 	return nil
 }
 
-// CompositeQuerier extends LazyQuerier with composite foreign key support.
+// CompositeQuerier extends LazyQuerier with composite-FK support. conditions is an
+// AND-equality FK match; extra carries scope conditions (`scope:"<name>"`) applied as
+// additional WHERE terms (any operator, AND-joined).
 type CompositeQuerier interface {
 	LazyQuerier
-	FindHasManyComposite(dest any, conditions map[string]any) error
-	FindHasOneComposite(dest any, conditions map[string]any) error
+	FindHasManyComposite(dest any, conditions map[string]any, extra ...LazyCondition) error
+	FindHasOneComposite(dest any, conditions map[string]any, extra ...LazyCondition) error
 }
 
-// CompositeBatchQuerier extends BatchQuerier with composite FK batch-query support.
+// CompositeBatchQuerier extends BatchQuerier with `(fkColumns) IN compositeKeys` support.
+// extra carries scope conditions (any operator, AND-joined). Single-FK fields with a scope
+// route through this path with a one-column tuple.
 type CompositeBatchQuerier interface {
 	BatchQuerier
-	FindHasManyInComposite(dest any, fkColumns []string, compositeKeys [][]any) error
+	FindHasManyInComposite(dest any, fkColumns []string, compositeKeys [][]any, extra ...LazyCondition) error
 }
 
 func _GetCompositeQuerierForType(t reflect.Type) CompositeQuerier {
@@ -534,6 +543,17 @@ func _GetCompositeBatchQuerierForType(t reflect.Type) CompositeBatchQuerier {
 // Scans all unexported struct fields with gorm foreignKey tags and issues
 // batch IN queries per association instead of per-record lazy loads.
 func _AutoEagerLoad[T any](items []T) {
+	_AutoEagerLoadFiltered(items, nil)
+}
+
+// _AutoEagerLoadFiltered is the selective variant of _AutoEagerLoad. When allowedFields
+// is non-nil, only lazy fields whose normalized name (struct field name with the leading
+// "_" stripped) is present in allowedFields are batch-loaded. Passing nil preserves the
+// original "load every lazy field" behavior of EagerAll.
+//
+// Callers should not invoke this directly; use models.Eager[T](names...) or
+// models.EagerAll[T]() to build the corresponding DatabaseQueryOption.
+func _AutoEagerLoadFiltered[T any](items []T, allowedFields map[string]struct{}) {
 	if len(items) == 0 {
 		return
 	}
@@ -560,6 +580,13 @@ func _AutoEagerLoad[T any](items []T) {
 			continue
 		}
 
+		if allowedFields != nil {
+			normalized := strings.TrimPrefix(field.Name, "_")
+			if _, ok := allowedFields[normalized]; !ok {
+				continue
+			}
+		}
+
 		refFieldName := _ParseGormTagValue(field.Tag.Get("gorm"), "references")
 
 		switch field.Type.Kind() {
@@ -577,10 +604,11 @@ func _AutoEagerLoad[T any](items []T) {
 			}
 		case reflect.Slice:
 			if field.Type.Elem().Kind() == reflect.Pointer {
-				if strings.Contains(fkFieldName, ",") {
-					_EagerHasManyComposite(rvItems, field, fkFieldName, refFieldName, field.Type.Elem().Elem())
+				scope := _ResolveLazyScope(field.Tag.Get("scope"))
+				if strings.Contains(fkFieldName, ",") || len(scope) > 0 {
+					_EagerHasManyComposite(rvItems, field, fkFieldName, refFieldName, field.Type.Elem().Elem(), scope)
 				} else {
-					_EagerHasMany(rvItems, field, fkFieldName, field.Type.Elem().Elem())
+					_EagerHasMany(rvItems, field, fkFieldName, refFieldName, field.Type.Elem().Elem())
 				}
 			}
 		}
@@ -659,57 +687,95 @@ func _EagerBelongsTo(items []reflect.Value, field reflect.StructField, fkFieldNa
 	}
 }
 
-// _EagerHasMany batch-loads a has-many association.
-func _EagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName string, childType reflect.Type) {
+// _EagerHasMany batch-loads a has-many association keyed by the parent's reference field.
+// refFieldName falls back to "ID" when empty (matching gorm's default references=primary key),
+// so callers can support non-PK references (e.g. a string column matched against a string FK).
+// Items whose cache slice is already non-nil are skipped.
+// Items with no children receive an empty (non-nil) slice to prevent future lazy loads.
+//
+// Grouping is keyed by the raw reflect value (reference value on the parent, FK value on the
+// child). Both sides must share the same Go type for the keys to match — which holds by the
+// app/models convention that an FK field uses the referenced model's <Model>Id type.
+func _EagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName, refFieldName string, childType reflect.Type) {
 	bq := _GetBatchQuerierForType(childType)
 	if bq == nil {
 		return
 	}
 
+	if refFieldName == "" {
+		refFieldName = "ID"
+	}
+
 	fkColumn := _ChildColumn(childType, fkFieldName)
 	sliceType := reflect.SliceOf(reflect.PointerTo(childType))
 
-	pkToItems := make(map[uint64][]reflect.Value)
+	keyToItems := make(map[any][]reflect.Value)
+	parentKeys := make([]any, 0)
 	for _, rv := range items {
 		mv := rv.Elem()
 		if !mv.FieldByName(field.Name).IsNil() {
 			continue
 		}
 
-		id := _ExtractUint64(mv.FieldByName("ID"))
-		if id == 0 {
+		refField := mv.FieldByName(refFieldName)
+		if !refField.IsValid() {
 			continue
 		}
 
-		pkToItems[id] = append(pkToItems[id], rv)
+		if refField.Kind() == reflect.Pointer {
+			if refField.IsNil() {
+				continue
+			}
+
+			refField = refField.Elem()
+		}
+
+		if refField.IsZero() {
+			continue
+		}
+
+		key := refField.Interface()
+		if _, exists := keyToItems[key]; !exists {
+			parentKeys = append(parentKeys, key)
+		}
+
+		keyToItems[key] = append(keyToItems[key], rv)
 	}
 
-	if len(pkToItems) == 0 {
+	if len(keyToItems) == 0 {
 		return
 	}
 
-	pks := _MapKeys(pkToItems)
 	resultSlice := reflect.New(sliceType).Elem()
-	if err := bq.FindHasManyIn(resultSlice.Addr().Interface(), fkColumn, pks); err != nil {
+	if err := bq.FindHasManyIn(resultSlice.Addr().Interface(), fkColumn, parentKeys); err != nil {
 		kklogger.ErrorJ("models:_EagerHasMany#query", err.Error())
 	}
 
-	groupByFK := make(map[uint64]reflect.Value)
+	groupByKey := make(map[any]reflect.Value)
 	for i := 0; i < resultSlice.Len(); i++ {
 		c := resultSlice.Index(i)
-		fkID := _ExtractUint64(c.Elem().FieldByName(fkFieldName))
-		if _, exists := groupByFK[fkID]; !exists {
-			groupByFK[fkID] = reflect.MakeSlice(sliceType, 0, 1)
+		fkVal := c.Elem().FieldByName(fkFieldName)
+		if fkVal.Kind() == reflect.Pointer {
+			if fkVal.IsNil() {
+				continue
+			}
+
+			fkVal = fkVal.Elem()
 		}
 
-		groupByFK[fkID] = reflect.Append(groupByFK[fkID], c)
+		key := fkVal.Interface()
+		if _, exists := groupByKey[key]; !exists {
+			groupByKey[key] = reflect.MakeSlice(sliceType, 0, 1)
+		}
+
+		groupByKey[key] = reflect.Append(groupByKey[key], c)
 	}
 
 	setCacheName := "SetCache" + strings.TrimPrefix(field.Name, "_")
 	emptySlice := reflect.MakeSlice(sliceType, 0, 0)
-	for pkID, rvs := range pkToItems {
+	for key, rvs := range keyToItems {
 		group := emptySlice
-		if g, ok := groupByFK[pkID]; ok {
+		if g, ok := groupByKey[key]; ok {
 			group = g
 		}
 
@@ -721,8 +787,11 @@ func _EagerHasMany(items []reflect.Value, field reflect.StructField, fkFieldName
 	}
 }
 
-// _EagerHasManyComposite batch-loads a has-many association with composite foreign keys.
-func _EagerHasManyComposite(items []reflect.Value, field reflect.StructField, fkFieldNameRaw string, refFieldNameRaw string, childType reflect.Type) {
+// _EagerHasManyComposite batch-loads a has-many association via
+// `WHERE (fk1, fk2, ...) IN ((v1, v2, ...), ...)`. Scope conditions (any op) flow through
+// as `extra ...LazyCondition` on the querier, not into the tuple. Single-FK fields with a
+// scope share this path with a one-column tuple.
+func _EagerHasManyComposite(items []reflect.Value, field reflect.StructField, fkFieldNameRaw string, refFieldNameRaw string, childType reflect.Type, scope []LazyCondition) {
 	cbq := _GetCompositeBatchQuerierForType(childType)
 	if cbq == nil {
 		return
@@ -730,7 +799,11 @@ func _EagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 
 	fkNames := _SplitCompositeTag(fkFieldNameRaw)
 	refNames := _SplitCompositeTag(refFieldNameRaw)
-	if len(refNames) == 0 || len(refNames) != len(fkNames) {
+	if len(refNames) == 0 {
+		refNames = []string{"ID"}
+	}
+
+	if len(refNames) != len(fkNames) {
 		return
 	}
 
@@ -792,7 +865,7 @@ func _EagerHasManyComposite(items []reflect.Value, field reflect.StructField, fk
 	}
 
 	resultSlice := reflect.New(sliceType).Elem()
-	if err := cbq.FindHasManyInComposite(resultSlice.Addr().Interface(), fkColumns, compositeKeys); err != nil {
+	if err := cbq.FindHasManyInComposite(resultSlice.Addr().Interface(), fkColumns, compositeKeys, scope...); err != nil {
 		kklogger.ErrorJ("models:_EagerHasManyComposite#query", err.Error())
 	}
 

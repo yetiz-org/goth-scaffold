@@ -115,6 +115,12 @@ func ValidateColumnLength(model any) error {
 	return nil
 }
 
+// IsZeroDate reports whether t is an unset/zero date: any time before 0001-01-03 UTC,
+// which covers Go's zero time.Time (0001-01-01 UTC).
+func IsZeroDate(t time.Time) bool {
+	return t.Before(time.Date(1, 1, 3, 0, 0, 0, 0, time.UTC))
+}
+
 func _GormTagValue(tag string, key string) string {
 	for part := range strings.SplitSeq(tag, ";") {
 		if after, ok := strings.CutPrefix(part, key+":"); ok {
