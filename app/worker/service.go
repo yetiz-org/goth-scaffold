@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -84,6 +85,15 @@ func _notifyTaskCanceledByShutdown(taskType string, stage string, err error) {
 }
 
 func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
+	_, err := t._Process(ctx, task, task.ResultWriter())
+	return err
+}
+
+// _Process runs the full task lifecycle (Before/Run/After/FlushResult) and returns the
+// taskInfo so synchronous callers can read its structured Result(). resultWriter is the
+// result sink: the asynq queue path passes task.ResultWriter(); worker.Execute passes nil
+// and reads taskInfo.Result() instead.
+func (t *_ServeHandler) _Process(ctx context.Context, task *asynq.Task, resultWriter io.Writer) (*internal.TaskInfo, error) {
 	executionContext := make(map[string]any)
 
 	// Use handler.Payload() to get an empty instance and decode into it
@@ -92,7 +102,7 @@ func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error
 		kklogger.WarnJ("worker:Service.ProcessTask#decode!failed", err.Error())
 	}
 
-	taskInfo := internal.NewTaskInfo(task.Type(), payload, task.ResultWriter())
+	taskInfo := internal.NewTaskInfo(task.Type(), payload, resultWriter)
 
 	if err := t.handler.Before(ctx, taskInfo, executionContext); err != nil {
 		if _isCanceledByShutdown(ctx, err) {
@@ -102,7 +112,7 @@ func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error
 			kklogger.ErrorJ("worker:Service.ProcessTask#before!failed", err.Error())
 		}
 
-		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
+		return taskInfo, t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
 	if err := t.handler.Run(ctx, taskInfo, executionContext); err != nil {
@@ -113,7 +123,7 @@ func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error
 			kklogger.ErrorJ("worker:Service.ProcessTask#run!failed", err.Error())
 		}
 
-		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
+		return taskInfo, t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
 	if err := t.handler.After(ctx, taskInfo, executionContext); err != nil {
@@ -124,11 +134,11 @@ func (t *_ServeHandler) ProcessTask(ctx context.Context, task *asynq.Task) error
 			kklogger.ErrorJ("worker:Service.ProcessTask#after!failed", err.Error())
 		}
 
-		return t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
+		return taskInfo, t.handler.ErrorCaught(ctx, taskInfo, executionContext, t._WrapError(err))
 	}
 
 	taskInfo.FlushResult()
-	return nil
+	return taskInfo, nil
 }
 
 // Register registers a task handler. The handler's Name() is used as the pattern.
@@ -226,17 +236,24 @@ func GetRegisteredHandlers() map[string]internal.Handler {
 	return handlerRegistry
 }
 
-// Execute runs a task directly without enqueuing.
-func Execute(ctx context.Context, task *asynq.Task) error {
-	if handler, ok := handlerRegistry[task.Type()]; ok {
-		if handler.Timeout() > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, handler.Timeout())
-			defer cancel()
-		}
+// Execute runs a task directly without enqueuing and returns the structured result the handler
+// produced via WriteSuccess/WriteError/WriteDryRunSuccess. The result is nil when the handler
+// called no Write*; an unregistered task type returns asynq.NotFound. The synchronous path has no
+// Redis ResultWriter, so the result is read from taskInfo.Result(), not the asynq result store.
+func Execute(ctx context.Context, task *asynq.Task) (*TaskResult, error) {
+	handler, ok := handlerRegistry[task.Type()]
+	if !ok {
+		return nil, asynq.NotFound(ctx, task)
 	}
 
-	return serveMux.ProcessTask(ctx, task)
+	if handler.Timeout() > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, handler.Timeout())
+		defer cancel()
+	}
+
+	taskInfo, err := (&_ServeHandler{handler: handler})._Process(ctx, task, nil)
+	return taskInfo.Result(), err
 }
 
 // Inspector returns the task inspector.

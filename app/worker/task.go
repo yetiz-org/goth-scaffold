@@ -23,6 +23,10 @@ func NewTask(taskname string, payload internal.Payload) *asynq.Task {
 	return internal.NewTask(taskname, payload)
 }
 
+// TaskResult is the structured result envelope returned by worker.Execute, aliased from
+// internal.TaskResult so packages that cannot import app/worker/internal can name the type.
+type TaskResult = internal.TaskResult
+
 type TaskFuture struct {
 	inspector *asynq.Inspector
 	*asynq.TaskInfo

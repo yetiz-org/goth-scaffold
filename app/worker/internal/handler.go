@@ -61,8 +61,10 @@ func NewTask(taskname string, payload Payload) *asynq.Task {
 	return asynq.NewTask(taskname, encoded)
 }
 
-// taskResultEnvelope is the internal wrapper; WriteSuccess/WriteError auto-populate timing fields.
-type taskResultEnvelope struct {
+// TaskResult is the structured result envelope. WriteSuccess/WriteError stage it;
+// Result/FlushResult populate the timing fields. Exported so worker.Execute can return
+// it synchronously to in-process callers.
+type TaskResult struct {
 	Success     bool   `json:"success"`
 	DurationMs  int64  `json:"duration_ms"`
 	Error       string `json:"error,omitempty"`
@@ -87,6 +89,7 @@ type TaskInfo struct {
 	_ResultWriter  io.Writer
 	_startedAt     time.Time
 	_pendingResult *pendingResult
+	_Result        *TaskResult
 }
 
 // Write implements io.Writer for task result output.
@@ -94,6 +97,14 @@ func (t *TaskInfo) Write(data []byte) (n int, err error) {
 	if t._ResultWriter == nil {
 		return 0, nil
 	}
+
+	// Guard a typed-nil writer (a nil pointer behind the io.Writer interface) so the
+	// synchronous Execute path, which has no Redis ResultWriter, never panics.
+	v := reflect.ValueOf(t._ResultWriter)
+	if v.Kind() == reflect.Pointer && v.IsNil() {
+		return 0, nil
+	}
+
 	return t._ResultWriter.Write(data)
 }
 
@@ -129,14 +140,21 @@ func (t *TaskInfo) WriteError(errCode string, message string, data any) {
 	}
 }
 
-// FlushResult is called at the end of ProcessTask; computes final timing and writes the result.
-func (t *TaskInfo) FlushResult() error {
+// Result returns the structured result envelope, building and caching it from the staged
+// result + timing on first call; returns nil when no Write* was called. worker.Execute reads
+// this to obtain the result on the synchronous (no-Redis) path, where FlushResult has already
+// cleared _pendingResult.
+func (t *TaskInfo) Result() *TaskResult {
+	if t._Result != nil {
+		return t._Result
+	}
+
 	if t._pendingResult == nil {
 		return nil
 	}
 
 	now := time.Now()
-	envelope := &taskResultEnvelope{
+	t._Result = &TaskResult{
 		Success:     t._pendingResult.success,
 		Error:       t._pendingResult.errCode,
 		Message:     t._pendingResult.message,
@@ -146,7 +164,17 @@ func (t *TaskInfo) FlushResult() error {
 		DurationMs:  now.Sub(t._startedAt).Milliseconds(),
 	}
 
-	jsonData, err := json.Marshal(envelope)
+	return t._Result
+}
+
+// FlushResult is called at the end of ProcessTask; it caches the result via Result() and
+// writes it to the ResultWriter (asynq result store). A second call is a no-op.
+func (t *TaskInfo) FlushResult() error {
+	if t._pendingResult == nil {
+		return nil
+	}
+
+	jsonData, err := json.Marshal(t.Result())
 	if err != nil {
 		kklogger.ErrorJ("internal:TaskInfo.FlushResult#marshal!failed", err.Error())
 		return err
