@@ -61,7 +61,8 @@ WORKTREE_APP_PORT       ?= $(shell expr $(WORKTREE_PORT_BASE) + 5)
 WORKTREE_SCOPE          := worktree/$(WORKTREE_PATH_ID)
 WORKTREE_RUN_DIR        := $(EVALUATE_DIR)/_run/$(WORKTREE_SCOPE)
 WORKTREE_PORTS_CMD      := bash $(EVALUATE_DIR)/scripts/worktree-ports.sh "$(WORKTREE_RUN_DIR)" "$(WORKTREE_ID_SAFE)" "$(WORKTREE_PORT_BASE)"
-WORKTREE_VARS           := COMPOSE_SCOPE=$(WORKTREE_SCOPE) ENV_DIR=$(EVALUATE_DIR)/env/$(WORKTREE_SCOPE) RUN_DIR=$(WORKTREE_RUN_DIR) CONFIG_FILE=$(WORKTREE_RUN_DIR)/config.yaml.local COMPOSE_RUN_DIR=./_run/$(WORKTREE_SCOPE) COMPOSE_PROJECT=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID) CONTAINER_PREFIX=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID)
+WORKTREE_VARS           := DB_ADAPTER=$(DB_ADAPTER) COMPOSE_SCOPE=$(WORKTREE_SCOPE) ENV_DIR=$(EVALUATE_DIR)/env/$(WORKTREE_SCOPE) RUN_DIR=$(WORKTREE_RUN_DIR) CONFIG_FILE=$(WORKTREE_RUN_DIR)/config.yaml.local COMPOSE_RUN_DIR=./_run/$(WORKTREE_SCOPE) COMPOSE_PROJECT=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID) CONTAINER_PREFIX=$(PROJECT_NAME)-worktree-$(WORKTREE_COMPOSE_ID)
+WORKTREE_ENV_CLEAR      := for name in $$(env | awk -F= '/^(APP_|GOTH_|SCAFFOLD_|DB_|MYSQL_|POSTGRES_|CASSANDRA_|REDIS_)/ {print $$1}'); do unset "$$name"; done; unset TEST_BASE_URL;
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -360,6 +361,21 @@ worktree-db-reseed: _worktree-guard ## Drop/recreate this worktree's active data
 .PHONY: worktree-test-e2e
 worktree-test-e2e: _worktree-guard ## Run E2E tests against this worktree's isolated config
 	@ports="$$($(WORKTREE_PORTS_CMD))" || exit 1; $(MAKE) --no-print-directory $(WORKTREE_VARS) $$ports local-test-e2e
+
+.PHONY: worktree-test
+worktree-test: _worktree-guard ## Clean, seed, run full Go tests against isolated worktree services, then clean
+	@set -e; \
+	initial_ports="$$($(WORKTREE_PORTS_CMD))"; \
+	$(WORKTREE_ENV_CLEAR) $(MAKE_COMMAND) --no-print-directory $(WORKTREE_VARS) $$initial_ports local-env-clean; \
+	ports="$$($(WORKTREE_PORTS_CMD))"; \
+	cleanup() { rc=$$?; set +e; $(WORKTREE_ENV_CLEAR) $(MAKE_COMMAND) --no-print-directory $(WORKTREE_VARS) $$ports local-env-clean; clean_rc=$$?; if [ $$rc -eq 0 ]; then exit $$clean_rc; fi; exit $$rc; }; \
+	trap cleanup EXIT; \
+	$(WORKTREE_ENV_CLEAR) $(MAKE_COMMAND) --no-print-directory $(WORKTREE_VARS) $$ports local-db-seed; \
+	$(MAKE_COMMAND) --no-print-directory $(WORKTREE_VARS) $$ports local-env-status; \
+	all_pkgs="$$(go list ./...)"; \
+	non_e2e_pkgs="$$(printf '%s\n' "$$all_pkgs" | awk '$$0 !~ /\/tests\/e2e$$/ {print}')"; \
+	$(WORKTREE_ENV_CLEAR) go test -v -count=1 -race $$non_e2e_pkgs; \
+	$(WORKTREE_ENV_CLEAR) CI=true SCAFFOLD_E2E_BINARY=./$(BINARY_NAME) SCAFFOLD_E2E_CONFIG=$(WORKTREE_RUN_DIR)/config.yaml.local go test -v -count=1 -timeout=120s ./tests/e2e/...
 
 # ─── Go Toolchain ────────────────────────────────────────────────────────────
 .PHONY: fmt
