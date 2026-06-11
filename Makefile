@@ -4,7 +4,7 @@ PROJECT_NAME := scaffold
 PROJECT_DB   := $(shell echo $(PROJECT_NAME) | tr '-' '_')
 EVALUATE_DIR := evaluate
 COMPOSE_FILE := $(EVALUATE_DIR)/docker-compose.yml
-COMPOSE      ?= docker compose
+COMPOSE      ?=
 
 # Database adapter selection — drives template rendering, docker-compose
 # profile, CLI tools, and reseed behaviour. Override per-invocation, e.g.
@@ -31,13 +31,16 @@ else
 DB_PORT_FOR_CONFIG := $(MYSQL_PORT)
 endif
 
-COMPOSE_ENV  := COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT) CONTAINER_PREFIX=$(CONTAINER_PREFIX) RUN_DIR=$(COMPOSE_RUN_DIR) MYSQL_PORT=$(MYSQL_PORT) POSTGRES_PORT=$(POSTGRES_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) REDIS_PORT=$(REDIS_PORT) ASYNQMON_PORT=$(ASYNQMON_PORT)
-COMPOSE_BASE := $(COMPOSE_ENV) $(COMPOSE) -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile $(DB_ADAPTER)
+COMPOSE_ENV  := COMPOSE='$(COMPOSE)' COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT) CONTAINER_PREFIX=$(CONTAINER_PREFIX) RUN_DIR=$(COMPOSE_RUN_DIR) MYSQL_PORT=$(MYSQL_PORT) POSTGRES_PORT=$(POSTGRES_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) REDIS_PORT=$(REDIS_PORT) ASYNQMON_PORT=$(ASYNQMON_PORT)
+HOST_ENV_CMD := bash $(EVALUATE_DIR)/scripts/worktree-ports.sh
+COMPOSE_BASE := $(COMPOSE_ENV) $(HOST_ENV_CMD) compose -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile $(DB_ADAPTER)
 
 MYSQL_CONTAINER     := $(CONTAINER_PREFIX)-mysql
 POSTGRES_CONTAINER  := $(CONTAINER_PREFIX)-postgres
 CASSANDRA_CONTAINER := $(CONTAINER_PREFIX)-cassandra
 REDIS_CONTAINER     := $(CONTAINER_PREFIX)-redis
+DB_CONTAINER_FOR_CONFIG := $(if $(filter postgres,$(DB_ADAPTER)),$(POSTGRES_CONTAINER),$(MYSQL_CONTAINER))
+DB_INTERNAL_PORT        := $(if $(filter postgres,$(DB_ADAPTER)),5432,3306)
 
 DQ := "
 BT := `
@@ -93,7 +96,15 @@ help: ## Show this help
 .PHONY: local-env-setup
 local-env-setup: ## Generate scoped local config and env credentials from templates (idempotent; honours DB_ADAPTER)
 	@mkdir -p $(RUN_DIR)
-	@DB_ADAPTER=$(DB_ADAPTER) OUTPUT_ENV_DIR=$(ENV_DIR) OUTPUT_CONFIG_FILE=$(CONFIG_FILE) SECRET_PATH=$(ENV_DIR)/ DB_PORT=$(DB_PORT_FOR_CONFIG) REDIS_PORT=$(REDIS_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) APP_PORT=$(APP_PORT) bash $(EVALUATE_DIR)/scripts/generate-configs.sh
+	@if $(HOST_ENV_CMD) host-remote $(CURDIR)/$(EVALUATE_DIR); then \
+		DB_ADAPTER=$(DB_ADAPTER) OUTPUT_ENV_DIR=$(ENV_DIR) OUTPUT_CONFIG_FILE=$(CONFIG_FILE) SECRET_PATH=$(ENV_DIR)/ \
+		DB_HOST=$(DB_CONTAINER_FOR_CONFIG) DB_PORT=$(DB_INTERNAL_PORT) \
+		CASSANDRA_HOST=$(CASSANDRA_CONTAINER) CASSANDRA_PORT=9042 \
+		REDIS_HOST=$(REDIS_CONTAINER) REDIS_PORT=6379 APP_PORT=$(APP_PORT) \
+		bash $(EVALUATE_DIR)/scripts/generate-configs.sh; \
+	else \
+		DB_ADAPTER=$(DB_ADAPTER) OUTPUT_ENV_DIR=$(ENV_DIR) OUTPUT_CONFIG_FILE=$(CONFIG_FILE) SECRET_PATH=$(ENV_DIR)/ DB_PORT=$(DB_PORT_FOR_CONFIG) REDIS_PORT=$(REDIS_PORT) CASSANDRA_PORT=$(CASSANDRA_PORT) APP_PORT=$(APP_PORT) bash $(EVALUATE_DIR)/scripts/generate-configs.sh; \
+	fi
 
 .PHONY: local-env-start
 local-env-start: ## Start scoped Docker services for the active DB_ADAPTER profile
@@ -118,7 +129,7 @@ local-env-stop: ## Stop scoped Docker services for the active DB_ADAPTER profile
 .PHONY: local-env-clean
 local-env-clean: ## Destroy scoped local data and config only (destructive; both adapters)
 	@echo "$(YELLOW)[WARN]$(NC) Destroying scoped data (scope=$(COMPOSE_SCOPE))..."
-	$(COMPOSE_ENV) $(COMPOSE) -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile mysql --profile postgres down -v --remove-orphans
+	$(COMPOSE_ENV) $(HOST_ENV_CMD) compose -f $(COMPOSE_FILE) -p $(COMPOSE_PROJECT) --profile mysql --profile postgres down -v --remove-orphans
 	@if [ "$(COMPOSE_SCOPE)" = "local" ]; then \
 		for c in $(PROJECT_NAME)-mysql $(PROJECT_NAME)-postgres $(PROJECT_NAME)-cassandra $(PROJECT_NAME)-redis $(PROJECT_NAME)-asynqmon; do \
 			if docker ps -a --format '{{.Names}}' | grep -qx "$$c"; then \
@@ -132,9 +143,12 @@ local-env-clean: ## Destroy scoped local data and config only (destructive; both
 		done; \
 		for d in $(EVALUATE_DIR)/_run/mysql $(EVALUATE_DIR)/_run/postgres $(EVALUATE_DIR)/_run/cassandra $(EVALUATE_DIR)/_run/redis; do \
 			if [ -d "$$d" ]; then \
-				docker run --user root --rm -v "$$(pwd)/$$d:/data" redis:7-alpine \
-					sh -c "rm -rf /data/*" 2>/dev/null || true; \
-				rm -rf "$$d"; \
+				rm -rf "$$d" 2>/dev/null || true; \
+				if [ -d "$$d" ]; then \
+					docker run --user root --rm -v "$$($(HOST_ENV_CMD) host-path "$(CURDIR)/$$d"):/data" redis:7-alpine \
+						sh -c "rm -rf /data/*" 2>/dev/null || true; \
+					rm -rf "$$d"; \
+				fi; \
 			fi; \
 		done; \
 		find $(EVALUATE_DIR)/env -mindepth 1 -maxdepth 1 -type d \
@@ -143,9 +157,12 @@ local-env-clean: ## Destroy scoped local data and config only (destructive; both
 		rm -f $(EVALUATE_DIR)/config.yaml.local; \
 	fi
 	@if [ -d "$(RUN_DIR)" ]; then \
-		docker run --user root --rm -v "$$(pwd)/$(RUN_DIR):/data" redis:7-alpine \
-			sh -c "rm -rf /data/*" 2>/dev/null || true; \
-		rm -rf $(RUN_DIR); \
+		rm -rf $(RUN_DIR) 2>/dev/null || true; \
+		if [ -d "$(RUN_DIR)" ]; then \
+			docker run --user root --rm -v "$$($(HOST_ENV_CMD) host-path "$(CURDIR)/$(RUN_DIR)"):/data" redis:7-alpine \
+				sh -c "rm -rf /data/*" 2>/dev/null || true; \
+			rm -rf $(RUN_DIR); \
+		fi; \
 	fi
 	@rm -rf $(ENV_DIR)
 	@env_parent="$$(dirname "$(ENV_DIR)")"; \
