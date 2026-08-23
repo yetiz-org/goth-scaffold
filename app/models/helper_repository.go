@@ -123,12 +123,12 @@ type DatabaseQueryOption[T any] struct {
 
 // SelectCols returns the column list specified by this option (with the primary key
 // automatically included). Returns nil when SelectOpt was not used.
-func (o DatabaseQueryOption[T]) SelectCols() []string {
+func (o DatabaseQueryOption[T]) SelectCols() (columns []string) {
 	return o._SelectCols
 }
 
 // ApplyGorm applies the GORM scope. No-op when _GormFn is nil.
-func (o DatabaseQueryOption[T]) ApplyGorm(db *gorm.DB) *gorm.DB {
+func (o DatabaseQueryOption[T]) ApplyGorm(db *gorm.DB) (query *gorm.DB) {
 	if o._GormFn != nil {
 		return o._GormFn(db)
 	}
@@ -144,7 +144,7 @@ func (o DatabaseQueryOption[T]) ApplyEager(items []T) {
 }
 
 // ApplyFilter runs the in-memory filter/sort function. Returns items unchanged when _FilterFn is nil.
-func (o DatabaseQueryOption[T]) ApplyFilter(items []T) []T {
+func (o DatabaseQueryOption[T]) ApplyFilter(items []T) (filtered []T) {
 	if o._FilterFn != nil {
 		return o._FilterFn(items)
 	}
@@ -153,20 +153,20 @@ func (o DatabaseQueryOption[T]) ApplyFilter(items []T) []T {
 }
 
 // GormOpt wraps a func(*gorm.DB)*gorm.DB into a DatabaseQueryOption.
-func GormOpt[T any](fn func(*gorm.DB) *gorm.DB) DatabaseQueryOption[T] {
+func GormOpt[T any](fn func(*gorm.DB) *gorm.DB) (option DatabaseQueryOption[T]) {
 	return DatabaseQueryOption[T]{_GormFn: fn}
 }
 
 // QueryOpt creates a DatabaseQueryOption with both a GORM scope and an in-memory filter.
 // Used by the queryfilter component; either gormFn or filterFn may be nil.
-func QueryOpt[T any](gormFn func(*gorm.DB) *gorm.DB, filterFn func([]T) []T) DatabaseQueryOption[T] {
+func QueryOpt[T any](gormFn func(*gorm.DB) *gorm.DB, filterFn func([]T) []T) (option DatabaseQueryOption[T]) {
 	return DatabaseQueryOption[T]{_GormFn: gormFn, _FilterFn: filterFn}
 }
 
 // PaginationOpt wraps offset and limit into a DatabaseQueryOption that applies LIMIT/OFFSET
 // at the DB layer. MySQL requires LIMIT when OFFSET is used; when offset > 0 and limit <= 0,
 // a large sentinel LIMIT (math.MaxInt32) is applied so the query remains valid.
-func PaginationOpt[T any](offset, limit int) DatabaseQueryOption[T] {
+func PaginationOpt[T any](offset, limit int) (option DatabaseQueryOption[T]) {
 	return DatabaseQueryOption[T]{_GormFn: func(db *gorm.DB) *gorm.DB {
 		if offset > 0 {
 			if limit <= 0 {
@@ -185,7 +185,7 @@ func PaginationOpt[T any](offset, limit int) DatabaseQueryOption[T] {
 }
 
 // LimitOpt wraps limit into a DatabaseQueryOption that applies LIMIT at the DB layer (no OFFSET).
-func LimitOpt[T any](limit int) DatabaseQueryOption[T] {
+func LimitOpt[T any](limit int) (option DatabaseQueryOption[T]) {
 	return DatabaseQueryOption[T]{_GormFn: func(db *gorm.DB) *gorm.DB {
 		if limit > 0 {
 			db = db.Limit(limit)
@@ -201,7 +201,7 @@ func LimitOpt[T any](limit int) DatabaseQueryOption[T] {
 // EagerAll loads every lazy field carrying a foreignKey tag, which suits single-record
 // queries that need the full object graph. For list endpoints prefer Eager(...) with only
 // the fields the response actually reads, so unused associations don't each cost an IN query.
-func EagerAll[T any]() DatabaseQueryOption[T] {
+func EagerAll[T any]() (option DatabaseQueryOption[T]) {
 	return DatabaseQueryOption[T]{_LoadFn: _AutoEagerLoad[T]}
 }
 
@@ -216,7 +216,7 @@ func EagerAll[T any]() DatabaseQueryOption[T] {
 //	    models.PaginationOpt[*models.SiteSetting](offset, limit),
 //	    models.Eager[*models.SiteSetting]("Tags"),
 //	)
-func Eager[T any](fieldNames ...string) DatabaseQueryOption[T] {
+func Eager[T any](fieldNames ...string) (option DatabaseQueryOption[T]) {
 	if len(fieldNames) == 0 {
 		return DatabaseQueryOption[T]{}
 	}
@@ -232,7 +232,7 @@ func Eager[T any](fieldNames ...string) DatabaseQueryOption[T] {
 }
 
 // SelectOpt restricts the query to specific columns. The primary key (id) is always included.
-func SelectOpt[T any](columns ...string) DatabaseQueryOption[T] {
+func SelectOpt[T any](columns ...string) (option DatabaseQueryOption[T]) {
 	cols := _EnsurePrimaryKey(columns)
 	return DatabaseQueryOption[T]{
 		_GormFn:     func(db *gorm.DB) *gorm.DB { return db.Select(cols) },
@@ -241,7 +241,7 @@ func SelectOpt[T any](columns ...string) DatabaseQueryOption[T] {
 }
 
 // _EnsurePrimaryKey returns columns with "id" prepended if not already present.
-func _EnsurePrimaryKey(columns []string) []string {
+func _EnsurePrimaryKey(columns []string) (ensured []string) {
 	for _, c := range columns {
 		if strings.EqualFold(c, "id") {
 			result := make([]string, len(columns))

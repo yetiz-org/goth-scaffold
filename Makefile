@@ -214,6 +214,14 @@ clean: ## Remove compiled binaries
 	@rm -f $(PROJECT_NAME)-darwin $(PROJECT_NAME)-amd64
 	@echo "$(GREEN)[OK]$(NC) Cleaned"
 
+# ─── Documentation ────────────────────────────────────────────────────────────
+.PHONY: docs-build
+docs-build: ## Generate the canonical OpenAPI specification from the route tree
+	@echo "$(BLUE)[INFO]$(NC) Generating OpenAPI specification..."
+	@go run ./cmd/goaispec -profile all -o openapi.yaml
+	@test -s docs/openapi/openapi.yaml
+	@echo "$(GREEN)[OK]$(NC) OpenAPI specification written to docs/openapi/openapi.yaml"
+
 # ─── Run ─────────────────────────────────────────────────────────────────────
 .PHONY: local-run
 local-run: local-env-setup local-env-start _local-wait-database _local-wait-cassandra _local-init-cassandra build ## Build and start API on the scoped APP_PORT (default mode)

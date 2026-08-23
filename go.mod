@@ -11,8 +11,8 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pkg/errors v0.9.1
 	github.com/yetiz-org/asynq v0.30.1
-	github.com/yetiz-org/gone v1.15.20
-	github.com/yetiz-org/gone-httpsession-redis v1.3.0
+	github.com/yetiz-org/gone v1.17.0
+	github.com/yetiz-org/gone-httpsession-redis v1.3.2
 	github.com/yetiz-org/goth-base62 v1.2.0
 	github.com/yetiz-org/goth-bytebuf v1.2.1
 	github.com/yetiz-org/goth-daemon v1.9.0
@@ -30,6 +30,8 @@ require (
 	golang.org/x/text v0.34.0
 	google.golang.org/api v0.247.0
 	gopkg.in/yaml.v3 v3.0.1
+	gorm.io/driver/mysql v1.6.0
+	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
 
@@ -94,6 +96,4 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gorm.io/driver/mysql v1.6.0 // indirect
-	gorm.io/driver/postgres v1.6.0 // indirect
 )

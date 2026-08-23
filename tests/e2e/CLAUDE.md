@@ -1,144 +1,84 @@
-# tests/e2e
+# E2E Test Rules
 
-End-to-end tests exercise the full HTTP stack against a running application server.
-Tests must be runnable with: `make local-test-e2e`
+## Purpose
 
-## File Naming
+Tests under `tests/e2e/` exercise the compiled application, HTTP stack, and configured connectors. The suite owns server startup through `TestMain`; the Makefile owns scoped config, ports, services, and environment cleanup.
 
-```
-{domain}_test.go         # e.g. health_test.go, site_settings_test.go
-```
+## Running Tests
 
-One file per logical domain. Group related endpoint tests together.
+Use the isolated Makefile paths from the repository root:
 
-## Test Function Naming
-
-```
-Test<Domain>_<Scenario>
+```bash
+make worktree-test-e2e
+make worktree-test
 ```
 
-Examples:
-- `TestHealth_ReturnsOK`
-- `TestSiteSettings_ListReturnsEmpty`
-- `TestSiteSettings_UnauthorizedRejected`
+`make local-test-e2e` is valid only after `make local-env-setup` and required services are available. A direct run must provide scoped artifacts explicitly:
 
-## Required Boilerplate
-
-Every test function must:
-
-```go
-func TestFoo_Bar(t *testing.T) {
-	t.Parallel()                         // MANDATORY — always first
-
-	tc := testutils.NewTestContext(t)    // MANDATORY
-
-	// ... test body ...
-}
+```bash
+SCAFFOLD_E2E_BINARY=./scaffold-amd64 SCAFFOLD_E2E_CONFIG=evaluate/_run/<scope>/config.yaml.local go test -v -count=1 -timeout=120s ./tests/e2e/...
 ```
 
-Never omit `t.Parallel()`. Never share state between test functions.
+Do not hand-create config files or reuse another worktree's `_run` path. The current Makefile does not implement a focused `E2E_RUN` variable.
 
-## Comments
+## Test Shape
 
-### File Header
+- Put one logical endpoint/resource group in each `{domain}_test.go` file.
+- New or renamed functions use `Test<Domain>_<Operation>_<Scenario>` when those three parts apply. Keep names precise rather than padding a simple liveness test.
+- Every `Test...` function calls `t.Parallel()` as its first statement. `TestMain` is not a test function and is exempt.
+- After optional-prerequisite checks, create one `testutils.NewTestContext(t)` per test. Do not share clients or mutable state between tests.
+- Close every response body. Use `testutils.ReadJSONBody` when decoding JSON.
+- When creating or substantially editing a test file, add the synchronized file-level block comment required by `tests/CLAUDE.md`.
 
-```go
-// Tests for /api/v1/foo endpoints.
-// Covers: list (GET), create (POST), not-found (404), unauthorized (401).
-package e2e
-```
+## Scenario Selection
 
-### Test Function Comment
+For each changed endpoint, derive applicable cases from the actual route, acceptance chain, parsing, validation, and response code:
 
-```go
-// TestSiteSettings_ListReturnsEmptyWhenNoData verifies GET /api/v1/site-settings
-// returns an empty array when no records exist, not null or an error.
-func TestSiteSettings_ListReturnsEmptyWhenNoData(t *testing.T) {
-```
+| Category | Examples |
+| --- | --- |
+| Success | Valid request returns the documented status and response fields. |
+| Authentication/authorization | Missing, invalid, or insufficient credentials are rejected when the route requires them. |
+| Input validation | Empty, malformed, oversized, or unsupported values are rejected. |
+| Boundary | Minimum, maximum, empty collection, or pagination edge that the contract defines. |
+| Missing/conflict | Unknown resource, duplicate operation, or invalid state transition when applicable. |
+| Method | Unsupported HTTP verb returns the served method error when the router exposes one. |
 
-One sentence: what endpoint, what condition, what is verified.
+Do not add irrelevant matrix cases. State why an omitted category does not apply when it is not obvious.
 
 ## Assertions
 
-Always include a descriptive message:
+- Verify response fields and side effects, not only status, whenever the endpoint has a body or state contract.
+- A status-only assertion is acceptable for a pure liveness/connectivity contract.
+- Use fatal failures for prerequisites that make later checks unsafe; use non-fatal checks only when later assertions remain meaningful.
+- Include expected and actual values in failure messages.
+- Reject ranges so broad that broken behavior still passes.
 
-```go
-if resp.StatusCode != http.StatusOK {
-	t.Errorf("expected 200, got %d — check if server started correctly", resp.StatusCode)
-}
-```
+## Isolation and Optional Services
 
-Verify response body fields, not only status codes.
+- Generate unique test data. Do not hardcode reusable resource identifiers or share state across tests.
+- `t.Skip` is allowed only when an explicitly optional connector/config is disabled or not initialized in a non-CI environment. The message must name the missing prerequisite and how to enable it.
+- Once a required service is available, health or behavior failures are test failures, not skip conditions.
+- CI and `make worktree-test` must not silently pass by skipping required setup.
+- Do not use `time.Sleep` in test cases. Poll an observable condition with a deadline; reuse `testutils.WaitForServer` for server readiness.
 
-## Service-Dependent Tests (Database / Redis)
+## Test Utilities and Lifecycle
 
-Skip gracefully when the service is not configured:
+| API | Purpose |
+| --- | --- |
+| `testutils.NewTestContext(t)` | Per-test base URL and HTTP client |
+| `tc.DoGet(path)` | GET relative to the scoped base URL |
+| `tc.DoPostJSON(path, body)` | JSON POST relative to the scoped base URL |
+| `tc.NewClient()` | Client that does not follow redirects |
+| `testutils.ReadJSONBody(t, resp, &dest)` | Read, close, and decode a JSON body |
+| `testutils.GetTestConfig()` | Resolve CI/local scoped config and base URL |
+| `testutils.WaitForServer(url, timeout)` | Bounded readiness polling |
 
-```go
-func TestFoo_UsesDatabase(t *testing.T) {
-	t.Parallel()
+`TestMain` starts and stops the server and cleans its temporary binary/config. Do not add another package-wide lifecycle owner.
 
-	if !database.Enabled() {
-		t.Skip("database not configured — skipping")
-	}
+## Artifacts and Completion
 
-	// test body using actual DB
-}
-```
+- Server logs may appear under repository-root `alloc/logs/`. Preserve logs that predate the task.
+- Remove only binaries, logs, configs, coverage files, or directories created by the current task and not owned by Makefile cleanup.
+- After E2E or full-gate execution, inspect `git status --short` and report any residual artifact you cannot safely attribute.
 
-Use `database.Enabled()` / `redis.Enabled()` from the connector packages.
-Do not panic or fail on missing config — always `t.Skip`.
-
-## Edge Cases to Cover
-
-For every endpoint under test, cover:
-
-| Category | Example |
-|----------|---------|
-| Happy path | valid input → 200 + correct body |
-| Unauthorized | no/invalid token → 401 |
-| Not found | nonexistent ID → 404 |
-| Invalid input | empty body, malformed JSON → 400 |
-| Method not allowed | wrong HTTP verb → 405 |
-
-## Prohibited Patterns
-
-- `time.Sleep` for async waits — use polling helpers
-- Hardcoded user/resource IDs — use generated test data
-- Shared state between test functions — each test is fully independent
-- Assertions without messages — always explain what was expected
-- Missing `t.Parallel()` — add to every test function
-
-## Test Context Helpers
-
-| Method | Purpose |
-|--------|---------|
-| `tc.DoGet(path)` | GET request to `BaseURL + path` |
-| `tc.DoPostJSON(path, body)` | POST with `Content-Type: application/json` |
-| `tc.NewClient()` | Fresh `http.Client` that does NOT follow redirects |
-| `testutils.GetBaseURL()` | Returns current server base URL (from config) |
-| `testutils.ReadJSONBody(t, resp, &dest)` | Unmarshal response body into `dest`; fails test on error |
-| `testutils.GetTestConfig()` | Returns `TestConfig` with port, config path, project root |
-
-`tc.BaseURL` is set from `testutils.GetBaseURL()` at construction — use it directly for custom requests.
-
-## Running
-
-```bash
-# Services must be up first
-make local-env-start
-
-# Run e2e tests (automatically builds binary and starts server)
-make local-test-e2e
-
-# Or directly
-SCAFFOLD_E2E_BINARY=./scaffold SCAFFOLD_E2E_CONFIG=evaluate/_run/local/config.yaml.local go test -v -count=1 -timeout=120s ./tests/e2e/...
-```
-
-`SCAFFOLD_E2E_BINARY` controls which binary the test harness starts:
-- If set → use that path directly (must already be built).
-- If unset → the harness builds a fresh binary from source before running tests.
-- `make local-test-e2e` builds first then sets this variable automatically.
-
-`SCAFFOLD_E2E_CONFIG` controls which generated config the test harness uses.
-`make local-test-e2e` passes `evaluate/_run/local/config.yaml.local`; `make worktree-test-e2e` passes the matching `evaluate/_run/worktree/<safe-id>/config.yaml.local`.
+For rule-only changes, run the rule validator plus diff/status checks instead of starting services.

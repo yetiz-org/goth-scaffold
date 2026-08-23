@@ -1,0 +1,35 @@
+# Project-local GoAI configuration. Paths are resolved from docs/openapi/.
+title: Goth Scaffold API
+description: |
+  Generated from the scaffold route tree and namespaced @goai directives.
+version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Public
+    description: Endpoints that do not require authentication.
+
+security: []
+defaultOutput: openapi.generated.yaml
+concurrency: 1
+suppressEmptySchemas: true
+enableDocstringExtraction: true
+
+excludePaths:
+  - /
+  - /static/**
+  - /favicon.ico
+  - /robots.txt
+
+profiles:
+  public:
+    include:
+      tags: ["Public"]
+  all: {}
+
+output:
+  public: openapi.public.yaml
+  all: openapi.generated.yaml

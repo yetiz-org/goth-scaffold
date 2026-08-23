@@ -16,11 +16,11 @@ import (
 
 // _QuoteSQLIdentifier delegates to the active dialect so SQL identifiers are
 // quoted with backticks on MySQL and double quotes on PostgreSQL.
-func _QuoteSQLIdentifier(ident string) string {
+func _QuoteSQLIdentifier(ident string) (quoted string) {
 	return dialect.Current().QuoteIdent(ident)
 }
 
-func _ApplyWhereConditions(tx *gorm.DB, conditions map[string]any) *gorm.DB {
+func _ApplyWhereConditions(tx *gorm.DB, conditions map[string]any) (query *gorm.DB) {
 	q := tx
 	for k, v := range conditions {
 		col := _QuoteSQLIdentifier(k)
@@ -46,7 +46,7 @@ type DatabaseDefaultRepository[K any, T models.Model] struct {
 	_DBFunc func() *gorm.DB
 }
 
-func (d *DatabaseDefaultRepository[K, T]) _ApplyGorm(db *gorm.DB, opts []models.DatabaseQueryOption[T]) *gorm.DB {
+func (d *DatabaseDefaultRepository[K, T]) _ApplyGorm(db *gorm.DB, opts []models.DatabaseQueryOption[T]) (query *gorm.DB) {
 	for _, opt := range opts {
 		db = opt.ApplyGorm(db)
 	}
@@ -60,7 +60,7 @@ func (d *DatabaseDefaultRepository[K, T]) _ApplyEager(items []T, opts []models.D
 	}
 }
 
-func (d *DatabaseDefaultRepository[K, T]) _ApplyFilter(items []T, opts []models.DatabaseQueryOption[T]) []T {
+func (d *DatabaseDefaultRepository[K, T]) _ApplyFilter(items []T, opts []models.DatabaseQueryOption[T]) (filtered []T) {
 	for _, opt := range opts {
 		items = opt.ApplyFilter(items)
 	}
@@ -69,10 +69,7 @@ func (d *DatabaseDefaultRepository[K, T]) _ApplyFilter(items []T, opts []models.
 }
 
 // FindWhere executes a query built by the caller-provided function.
-func (d *DatabaseDefaultRepository[K, T]) FindWhere(
-	build func(db *gorm.DB) *gorm.DB,
-	opts ...models.DatabaseQueryOption[T],
-) ([]T, error) {
+func (d *DatabaseDefaultRepository[K, T]) FindWhere(build func(db *gorm.DB) *gorm.DB, opts ...models.DatabaseQueryOption[T]) (results []T, queryErr error) {
 	var items []T
 	db := d._ApplyGorm(build(d.DB()), opts)
 	if err := db.Find(&items).Error; err != nil {
@@ -87,10 +84,7 @@ func (d *DatabaseDefaultRepository[K, T]) FindWhere(
 
 // FirstWhere executes a query built by the caller-provided function and returns the first match.
 // Returns (zero, nil) when no record is found.
-func (d *DatabaseDefaultRepository[K, T]) FirstWhere(
-	build func(db *gorm.DB) *gorm.DB,
-	opts ...models.DatabaseQueryOption[T],
-) (T, error) {
+func (d *DatabaseDefaultRepository[K, T]) FirstWhere(build func(db *gorm.DB) *gorm.DB, opts ...models.DatabaseQueryOption[T]) (model T, queryErr error) {
 	entityType := reflect.TypeFor[T]().Elem()
 	entity := reflect.New(entityType).Interface().(T)
 
@@ -115,7 +109,7 @@ func (d *DatabaseDefaultRepository[K, T]) FirstWhere(
 
 // First retrieves the first entity matching the given options.
 // Returns (zero, nil) when no record is found.
-func (d *DatabaseDefaultRepository[K, T]) First(opts ...models.DatabaseQueryOption[T]) (T, error) {
+func (d *DatabaseDefaultRepository[K, T]) First(opts ...models.DatabaseQueryOption[T]) (model T, queryErr error) {
 	entityType := reflect.TypeFor[T]().Elem()
 	entity := reflect.New(entityType).Interface().(T)
 
@@ -139,7 +133,7 @@ func (d *DatabaseDefaultRepository[K, T]) First(opts ...models.DatabaseQueryOpti
 }
 
 // Find retrieves all entities matching the given options.
-func (d *DatabaseDefaultRepository[K, T]) Find(opts ...models.DatabaseQueryOption[T]) ([]T, error) {
+func (d *DatabaseDefaultRepository[K, T]) Find(opts ...models.DatabaseQueryOption[T]) (results []T, queryErr error) {
 	var items []T
 	db := d._ApplyGorm(d.DB(), opts)
 	if err := db.Find(&items).Error; err != nil {
@@ -157,24 +151,48 @@ type TxBeginFunc func() (*gorm.DB, error)
 
 type TransactionFunc func(tx *gorm.DB) error
 
-func NewDatabaseDefaultRepository[K any, T models.Model](db *gorm.DB) *DatabaseDefaultRepository[K, T] {
+type _TransactionRetryAttempt struct {
+	_Context    context.Context
+	_Number     int
+	_MaxRetries int
+	_Backoff    time.Duration
+}
+
+func (a _TransactionRetryAttempt) _Retry(operationErr error, logKey string) (retry bool, finalErr error) {
+	if !_IsRetryableError(operationErr) || a._Number == a._MaxRetries {
+		return false, operationErr
+	}
+
+	kklogger.WarnJ(logKey, map[string]any{
+		"attempt": a._Number,
+		"error":   operationErr.Error(),
+	})
+
+	if waitErr := _WaitForTransactionRetry(a._Context, a._Backoff); waitErr != nil {
+		return false, waitErr
+	}
+
+	return true, nil
+}
+
+func NewDatabaseDefaultRepository[K any, T models.Model](db *gorm.DB) (repository *DatabaseDefaultRepository[K, T]) {
 	return &DatabaseDefaultRepository[K, T]{
 		_Db: db,
 	}
 }
 
-func NewDatabaseDefaultRepositoryF[K any, T models.Model](dbFunc func() *gorm.DB) *DatabaseDefaultRepository[K, T] {
+func NewDatabaseDefaultRepositoryF[K any, T models.Model](dbFunc func() *gorm.DB) (repository *DatabaseDefaultRepository[K, T]) {
 	return &DatabaseDefaultRepository[K, T]{
 		_DBFunc: dbFunc,
 	}
 }
 
-func (d *DatabaseDefaultRepository[K, T]) TableName() string {
+func (d *DatabaseDefaultRepository[K, T]) TableName() (name string) {
 	model := *new(T)
 	return model.TableName()
 }
 
-func (d *DatabaseDefaultRepository[K, T]) Save(entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) Save(entity T) (saveErr error) {
 	if m, ok := any(entity).(models.ModelSavePreHook); ok {
 		if err := m.PreSave(context.Background()); err != nil {
 			return err
@@ -193,7 +211,7 @@ func (d *DatabaseDefaultRepository[K, T]) Save(entity T) error {
 	return err
 }
 
-func (d *DatabaseDefaultRepository[K, T]) SaveTx(tx *gorm.DB, entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) SaveTx(tx *gorm.DB, entity T) (saveErr error) {
 	if m, ok := any(entity).(models.ModelSavePreHook); ok {
 		if err := m.PreSave(context.Background()); err != nil {
 			return err
@@ -212,73 +230,84 @@ func (d *DatabaseDefaultRepository[K, T]) SaveTx(tx *gorm.DB, entity T) error {
 	return err
 }
 
-func (d *DatabaseDefaultRepository[K, T]) SaveRetry(entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) SaveRetry(entity T) (err error) {
 	return d._SaveWithRetry(d.DB(), entity)
 }
 
-func (d *DatabaseDefaultRepository[K, T]) SaveRetryTx(tx *gorm.DB, entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) SaveRetryTx(tx *gorm.DB, entity T) (err error) {
 	return d._SaveWithRetry(tx, entity)
 }
 
-func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc) error {
+// WithTransactionRetry executes fn in a new transaction and retries retryable begin, body, and commit errors.
+// Existing callers retain their context-free behavior through a background context.
+func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc) (retryErr error) {
+	return WithTransactionRetryContext(context.Background(), maxRetries, begin, fn)
+}
+
+// WithTransactionRetryContext executes fn with bounded retries and interruptible backoff.
+// A nil context is rejected; cancellation before commit rolls back the active transaction.
+func WithTransactionRetryContext(ctx context.Context, maxRetries int, begin TxBeginFunc, fn TransactionFunc) (retryErr error) {
+	if ctx == nil {
+		return errors.New("transaction retry context required")
+	}
+
 	if maxRetries <= 0 {
 		maxRetries = 1
 	}
 
 	backoffs := _TransactionRetryBackoffs(maxRetries)
 	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attemptNumber := 1; attemptNumber <= maxRetries; attemptNumber++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		retryAttempt := _TransactionRetryAttempt{
+			_Context:    ctx,
+			_Number:     attemptNumber,
+			_MaxRetries: maxRetries,
+			_Backoff:    backoffs[attemptNumber-1],
+		}
+
 		tx, err := begin()
 		if err != nil {
 			lastErr = err
-			if !_IsRetryableError(err) || attempt == maxRetries {
-				return err
+			retry, finalErr := retryAttempt._Retry(err, "repo:WithTransactionRetry#retry!begin_error")
+			if !retry {
+				return finalErr
 			}
 
-			kklogger.WarnJ("repo:WithTransactionRetry#retry!begin_error", map[string]any{
-				"attempt": attempt,
-				"error":   err.Error(),
-			})
-			time.Sleep(backoffs[attempt-1])
 			continue
 		}
 
 		err = _WithTransactionRecovery(func() error {
 			return fn(tx)
 		}, func() {
-			if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
-				kklogger.ErrorJ("repo:WithTransactionRetry#rollback!rollback_error", rollbackErr.Error())
-			}
+			_RollbackTransaction(tx, "repo:WithTransactionRetry#rollback!rollback_error")
 		})
 		if err != nil {
 			lastErr = err
-			if !_IsRetryableError(err) || attempt == maxRetries {
-				return err
+			retry, finalErr := retryAttempt._Retry(err, "repo:WithTransactionRetry#retry!execute_error")
+			if !retry {
+				return finalErr
 			}
 
-			kklogger.WarnJ("repo:WithTransactionRetry#retry!execute_error", map[string]any{
-				"attempt": attempt,
-				"error":   err.Error(),
-			})
-			time.Sleep(backoffs[attempt-1])
 			continue
+		}
+
+		if err := ctx.Err(); err != nil {
+			_RollbackTransaction(tx, "repo:WithTransactionRetry#cancel!rollback_error")
+			return err
 		}
 
 		if commitErr := tx.Commit().Error; commitErr != nil {
 			lastErr = commitErr
-			if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
-				kklogger.ErrorJ("repo:WithTransactionRetry#commit!rollback_error", rollbackErr.Error())
+			_RollbackTransaction(tx, "repo:WithTransactionRetry#commit!rollback_error")
+			retry, finalErr := retryAttempt._Retry(commitErr, "repo:WithTransactionRetry#retry!commit_error")
+			if !retry {
+				return finalErr
 			}
 
-			if !_IsRetryableError(commitErr) || attempt == maxRetries {
-				return commitErr
-			}
-
-			kklogger.WarnJ("repo:WithTransactionRetry#retry!commit_error", map[string]any{
-				"attempt": attempt,
-				"error":   commitErr.Error(),
-			})
-			time.Sleep(backoffs[attempt-1])
 			continue
 		}
 
@@ -288,7 +317,25 @@ func WithTransactionRetry(maxRetries int, begin TxBeginFunc, fn TransactionFunc)
 	return lastErr
 }
 
-func (d *DatabaseDefaultRepository[K, T]) _SaveWithRetry(tx *gorm.DB, entity T) error {
+func _RollbackTransaction(tx *gorm.DB, logKey string) {
+	if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
+		kklogger.ErrorJ(logKey, rollbackErr.Error())
+	}
+}
+
+func _WaitForTransactionRetry(ctx context.Context, backoff time.Duration) (err error) {
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (d *DatabaseDefaultRepository[K, T]) _SaveWithRetry(tx *gorm.DB, entity T) (saveErr error) {
 	backoffs := []time.Duration{
 		10 * time.Millisecond,
 		20 * time.Millisecond,
@@ -344,7 +391,7 @@ func _WithTransactionRecovery(fn func() error, rollback func()) (err error) {
 	return nil
 }
 
-func _TransactionRetryBackoffs(maxRetries int) []time.Duration {
+func _TransactionRetryBackoffs(maxRetries int) (delays []time.Duration) {
 	baseBackoffs := []time.Duration{
 		50 * time.Millisecond,
 		100 * time.Millisecond,
@@ -368,7 +415,7 @@ func _TransactionRetryBackoffs(maxRetries int) []time.Duration {
 	return backoffs
 }
 
-func (d *DatabaseDefaultRepository[K, T]) Delete(entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) Delete(entity T) (deleteErr error) {
 	if m, ok := any(entity).(models.ModelDeletePreHook); ok {
 		if err := m.PreDelete(context.Background()); err != nil {
 			return err
@@ -387,7 +434,7 @@ func (d *DatabaseDefaultRepository[K, T]) Delete(entity T) error {
 	return err
 }
 
-func (d *DatabaseDefaultRepository[K, T]) DeleteTx(tx *gorm.DB, entity T) error {
+func (d *DatabaseDefaultRepository[K, T]) DeleteTx(tx *gorm.DB, entity T) (deleteErr error) {
 	if m, ok := any(entity).(models.ModelDeletePreHook); ok {
 		if err := m.PreDelete(context.Background()); err != nil {
 			return err
@@ -406,7 +453,7 @@ func (d *DatabaseDefaultRepository[K, T]) DeleteTx(tx *gorm.DB, entity T) error 
 	return err
 }
 
-func (d *DatabaseDefaultRepository[K, T]) DB() *gorm.DB {
+func (d *DatabaseDefaultRepository[K, T]) DB() (db *gorm.DB) {
 	if d._DBFunc != nil {
 		return d._DBFunc()
 	}
@@ -415,7 +462,7 @@ func (d *DatabaseDefaultRepository[K, T]) DB() *gorm.DB {
 }
 
 // DefaultLimit returns the shared default page size for repositories.
-func (d *DatabaseDefaultRepository[K, T]) DefaultLimit() int {
+func (d *DatabaseDefaultRepository[K, T]) DefaultLimit() (limit int) {
 	return 50
 }
 
@@ -454,18 +501,35 @@ func (d *DatabaseDefaultRepository[K, T]) Fetch(id any, opts ...models.DatabaseQ
 
 // Get retrieves a single entity by primary key.
 // Returns zero value when the record is not found or any error occurs.
-func (d *DatabaseDefaultRepository[K, T]) Get(id K, opts ...models.DatabaseQueryOption[T]) T {
+func (d *DatabaseDefaultRepository[K, T]) Get(id K, opts ...models.DatabaseQueryOption[T]) (entity T) {
 	model, _ := d.Fetch(id, opts...)
 	return model
 }
 
+// GetByIDs retrieves all matching entities with one primary-key IN query.
+// Empty input and query failures return an explicit empty slice.
+func (d *DatabaseDefaultRepository[K, T]) GetByIDs(ids []K, opts ...models.DatabaseQueryOption[T]) (entities []T) {
+	if len(ids) == 0 {
+		return []T{}
+	}
+
+	items, err := d.FindWhere(func(db *gorm.DB) *gorm.DB {
+		return db.Where("id IN ?", ids)
+	}, opts...)
+	if err != nil {
+		return []T{}
+	}
+
+	return items
+}
+
 // Upsert updates or creates an entity based on the given conditions.
-func (d *DatabaseDefaultRepository[K, T]) Upsert(entity T, conditions map[string]any) error {
+func (d *DatabaseDefaultRepository[K, T]) Upsert(entity T, conditions map[string]any) (upsertErr error) {
 	return d.UpsertTx(d.DB(), entity, conditions)
 }
 
 // UpsertTx updates or creates an entity within a transaction.
-func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, conditions map[string]any) error {
+func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, conditions map[string]any) (upsertErr error) {
 	if m, ok := any(entity).(models.ModelSavePreHook); ok {
 		if err := m.PreSave(context.Background()); err != nil {
 			return err
@@ -521,11 +585,11 @@ func (d *DatabaseDefaultRepository[K, T]) UpsertTx(tx *gorm.DB, entity T, condit
 	return nil
 }
 
-func (d *DatabaseDefaultRepository[K, T]) FirstOrCreate(entity T, conditions map[string]any) (bool, error) {
+func (d *DatabaseDefaultRepository[K, T]) FirstOrCreate(entity T, conditions map[string]any) (created bool, operationErr error) {
 	return d.FirstOrCreateTx(d.DB(), entity, conditions)
 }
 
-func (d *DatabaseDefaultRepository[K, T]) FirstOrCreateTx(tx *gorm.DB, entity T, conditions map[string]any) (bool, error) {
+func (d *DatabaseDefaultRepository[K, T]) FirstOrCreateTx(tx *gorm.DB, entity T, conditions map[string]any) (created bool, operationErr error) {
 	err := _ApplyWhereConditions(tx, conditions).First(entity).Error
 	if err == nil {
 		return false, nil
@@ -571,11 +635,11 @@ func (d *DatabaseDefaultRepository[K, T]) FirstOrCreateTx(tx *gorm.DB, entity T,
 
 // IsLockNoWaitError reports whether err is a lock-not-available error on the
 // active dialect (MySQL 3572 / Postgres 55P03).
-func IsLockNoWaitError(err error) bool {
+func IsLockNoWaitError(err error) (matched bool) {
 	return dialect.Current().IsLockNoWaitErr(err)
 }
 
-func _IsRetryableError(err error) bool {
+func _IsRetryableError(err error) (retryable bool) {
 	return dialect.Current().IsRetryableErr(err)
 }
 

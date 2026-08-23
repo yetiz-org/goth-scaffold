@@ -47,8 +47,7 @@ func (d *SetupEnvironment) Start() {
 	}
 
 	_ = os.Setenv("APP_ENVIRONMENT", conf.Config().App.Environment.Upper())
-
-	if conf.Config().App.Environment.Upper() != "PRODUCTION" {
+	if conf.IsDebug() {
 		_ = os.Setenv("KKAPP_DEBUG", "true")
 		_ = os.Setenv("APP_DEBUG", "true")
 	}

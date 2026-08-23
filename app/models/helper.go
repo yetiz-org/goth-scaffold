@@ -23,7 +23,7 @@ type Model interface {
 	TableName() string
 }
 
-func NewValidationError(field string, message string) *ValidationError {
+func NewValidationError(field string, message string) (validationError *ValidationError) {
 	return &ValidationError{Field: field, Message: message}
 }
 
@@ -32,20 +32,20 @@ type ValidationError struct {
 	Message string
 }
 
-func (v *ValidationError) Error() string {
+func (v *ValidationError) Error() (value string) {
 	return fmt.Sprintf("validation error: %s: %s", v.Field, v.Message)
 }
 
 type LenValidationError ValidationError
 
-func (v *LenValidationError) Error() string {
+func (v *LenValidationError) Error() (value string) {
 	return v.Field
 }
 
 // ValidateColumnLength validates string field lengths against the size constraint
 // defined in gorm struct tags (e.g., `gorm:"size:255"`).
 // Returns *LenValidationError if any field exceeds its declared size limit.
-func ValidateColumnLength(model any) error {
+func ValidateColumnLength(model any) (validationErr error) {
 	v := reflect.ValueOf(model)
 	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
@@ -117,11 +117,11 @@ func ValidateColumnLength(model any) error {
 
 // IsZeroDate reports whether t is an unset/zero date: any time before 0001-01-03 UTC,
 // which covers Go's zero time.Time (0001-01-01 UTC).
-func IsZeroDate(t time.Time) bool {
+func IsZeroDate(t time.Time) (ok bool) {
 	return t.Before(time.Date(1, 1, 3, 0, 0, 0, 0, time.UTC))
 }
 
-func _GormTagValue(tag string, key string) string {
+func _GormTagValue(tag string, key string) (value string) {
 	for part := range strings.SplitSeq(tag, ";") {
 		if after, ok := strings.CutPrefix(part, key+":"); ok {
 			return after
@@ -161,7 +161,7 @@ type TimeOfDay struct {
 }
 
 // Scan implements sql.Scanner for MySQL TIME values.
-func (t *TimeOfDay) Scan(value any) error {
+func (t *TimeOfDay) Scan(value any) (err error) {
 	if value == nil {
 		t.Time = time.Time{}
 		return nil
@@ -180,7 +180,7 @@ func (t *TimeOfDay) Scan(value any) error {
 	}
 }
 
-func (t *TimeOfDay) _ParseString(value string) error {
+func (t *TimeOfDay) _ParseString(value string) (parseErr error) {
 	if value == "" {
 		t.Time = time.Time{}
 		return nil
@@ -196,7 +196,7 @@ func (t *TimeOfDay) _ParseString(value string) error {
 }
 
 // Value implements driver.Valuer for MySQL TIME values.
-func (t TimeOfDay) Value() (driver.Value, error) {
+func (t TimeOfDay) Value() (value driver.Value, err error) {
 	if t.Time.IsZero() {
 		return "00:00:00", nil
 	}
@@ -205,7 +205,7 @@ func (t TimeOfDay) Value() (driver.Value, error) {
 }
 
 // MarshalText implements encoding.TextMarshaler for MySQL TIME format "HH:MM:SS".
-func (t TimeOfDay) MarshalText() ([]byte, error) {
+func (t TimeOfDay) MarshalText() (bytes []byte, err error) {
 	if t.Time.IsZero() {
 		return []byte("00:00:00"), nil
 	}
@@ -214,7 +214,7 @@ func (t TimeOfDay) MarshalText() ([]byte, error) {
 }
 
 // MarshalJSON implements json.Marshaler for MySQL TIME format "HH:MM:SS".
-func (t TimeOfDay) MarshalJSON() ([]byte, error) {
+func (t TimeOfDay) MarshalJSON() (bytes []byte, marshalErr error) {
 	text, err := t.MarshalText()
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ func (t TimeOfDay) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for MySQL TIME format "HH:MM:SS".
-func (t *TimeOfDay) UnmarshalJSON(data []byte) error {
+func (t *TimeOfDay) UnmarshalJSON(data []byte) (err error) {
 	s := strings.Trim(string(data), `"`)
 	if s == "null" || s == "" {
 		t.Time = time.Time{}
@@ -236,14 +236,14 @@ func (t *TimeOfDay) UnmarshalJSON(data []byte) error {
 
 type Scope Privileges
 
-func (s Scope) Value() (driver.Value, error) {
+func (s Scope) Value() (value driver.Value, err error) {
 	if s == nil {
 		return nil, nil
 	}
 	return json.Marshal(s)
 }
 
-func (s *Scope) Scan(value any) error {
+func (s *Scope) Scan(value any) (scanErr error) {
 	if value == nil {
 		*s = nil
 		return nil
@@ -267,7 +267,7 @@ func (s *Scope) Scan(value any) error {
 	return nil
 }
 
-func (s Scope) Validate(scope string) bool {
+func (s Scope) Validate(scope string) (ok bool) {
 	for _, sc := range s {
 		scopePrefix := strings.Split(sc, ":")[0]
 		if scopePrefix != "" {
@@ -280,7 +280,7 @@ func (s Scope) Validate(scope string) bool {
 	return false
 }
 
-func (s Scope) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
+func (s Scope) MarshalCQL(info gocql.TypeInfo) (bytes []byte, err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -301,16 +301,7 @@ func (s *Scope) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
 		return gocql.ErrUnsupported
 	}
 
-	if len(body) == 0 {
-		return nil
-	}
-	v := ""
-	_ = json.Unmarshal(body, &v)
-	if err := json.Unmarshal([]byte(v), s); err != nil {
-		return err
-	}
-
-	return nil
+	return _UnmarshalCQLJSON(body, s)
 }
 
 func (s *Scope) UnmarshalJSON(body []byte) (err error) {
@@ -336,7 +327,7 @@ func (s *Scope) UnmarshalJSON(body []byte) (err error) {
 
 type CredentialId string
 
-func (a CredentialId) AppId() string {
+func (a CredentialId) AppId() (value string) {
 	s := string(a)
 	if after, ok := strings.CutPrefix(s, "ast-"); ok {
 		s = after
@@ -349,21 +340,21 @@ func (a CredentialId) AppId() string {
 	return strings.ToUpper(hex.EncodeToString(decoded[:16]))
 }
 
-func (a CredentialId) Id() string {
+func (a CredentialId) Id() (value string) {
 	return string(a)
 }
 
 type CredentialType string
 type Privileges []string
 
-func (p Privileges) Value() (driver.Value, error) {
+func (p Privileges) Value() (value driver.Value, err error) {
 	if p == nil {
 		return nil, nil
 	}
 	return json.Marshal(p)
 }
 
-func (p *Privileges) Scan(value any) error {
+func (p *Privileges) Scan(value any) (scanErr error) {
 	if value == nil {
 		*p = nil
 		return nil
@@ -387,7 +378,7 @@ func (p *Privileges) Scan(value any) error {
 	return nil
 }
 
-func (p Privileges) Validate(privilege string) bool {
+func (p Privileges) Validate(privilege string) (ok bool) {
 	for _, pri := range p {
 		privilegePath := strings.Split(pri, ":")[0]
 		if privilegePath != "" {
@@ -400,7 +391,7 @@ func (p Privileges) Validate(privilege string) bool {
 	return false
 }
 
-func (p Privileges) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
+func (p Privileges) MarshalCQL(info gocql.TypeInfo) (bytes []byte, err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -421,16 +412,7 @@ func (p *Privileges) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) 
 		return gocql.ErrUnsupported
 	}
 
-	if len(body) == 0 {
-		return nil
-	}
-	v := ""
-	_ = json.Unmarshal(body, &v)
-	if err := json.Unmarshal([]byte(v), p); err != nil {
-		return err
-	}
-
-	return nil
+	return _UnmarshalCQLJSON(body, p)
 }
 
 func (p *Privileges) UnmarshalJSON(body []byte) (err error) {
@@ -456,7 +438,7 @@ func (p *Privileges) UnmarshalJSON(body []byte) (err error) {
 
 type Metadata map[string]any
 
-func (c Metadata) Value() (driver.Value, error) {
+func (c Metadata) Value() (value driver.Value, marshalErr error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -469,7 +451,7 @@ func (c Metadata) Value() (driver.Value, error) {
 	return string(b), nil
 }
 
-func (c *Metadata) Scan(value any) error {
+func (c *Metadata) Scan(value any) (scanErr error) {
 	if value == nil {
 		*c = nil
 		return nil
@@ -499,7 +481,7 @@ func (c *Metadata) Scan(value any) error {
 	return nil
 }
 
-func (c Metadata) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
+func (c Metadata) MarshalCQL(info gocql.TypeInfo) (bytes []byte, err error) {
 	switch info.Type() {
 	case gocql.TypeText, gocql.TypeVarchar, gocql.TypeAscii:
 	default:
@@ -520,15 +502,35 @@ func (c *Metadata) UnmarshalCQL(info gocql.TypeInfo, body []byte) (err error) {
 		return gocql.ErrUnsupported
 	}
 
+	return _UnmarshalCQLJSON(body, c)
+}
+
+// _UnmarshalCQLJSON decodes direct JSON or one quoted JSON wrapper.
+// Empty input resets destination, and malformed input leaves it unchanged.
+func _UnmarshalCQLJSON[T any](body []byte, destination *T) (err error) {
 	if len(body) == 0 {
+		var zero T
+		*destination = zero
 		return nil
 	}
-	v := ""
-	_ = json.Unmarshal(body, &v)
-	if err := json.Unmarshal([]byte(v), c); err != nil {
+
+	var decoded T
+	rawErr := json.Unmarshal(body, &decoded)
+	if rawErr == nil {
+		*destination = decoded
+		return nil
+	}
+
+	var wrapped string
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return rawErr
+	}
+
+	if err := json.Unmarshal([]byte(wrapped), &decoded); err != nil {
 		return err
 	}
 
+	*destination = decoded
 	return nil
 }
 
