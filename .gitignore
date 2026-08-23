@@ -101,3 +101,5 @@ mempalace.yaml
 /evaluate/env/
 /.agents/scheduled_tasks.lock
 /.planning/
+.codegraph
+/tmp/
