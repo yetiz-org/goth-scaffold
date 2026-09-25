@@ -11,14 +11,14 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pkg/errors v0.9.1
 	github.com/yetiz-org/asynq v0.30.1
-	github.com/yetiz-org/gone v1.17.0
+	github.com/yetiz-org/gone v1.18.0
 	github.com/yetiz-org/gone-httpsession-redis v1.3.2
 	github.com/yetiz-org/goth-base62 v1.2.0
 	github.com/yetiz-org/goth-bytebuf v1.2.1
-	github.com/yetiz-org/goth-daemon v1.9.0
+	github.com/yetiz-org/goth-daemon v1.10.0
 	github.com/yetiz-org/goth-datastore v1.5.4
 	github.com/yetiz-org/goth-kkerror v1.0.0
-	github.com/yetiz-org/goth-kklogger v1.2.8
+	github.com/yetiz-org/goth-kklogger v1.2.9
 	github.com/yetiz-org/goth-kklogger-gcp-logging v1.2.0
 	github.com/yetiz-org/goth-kklogger-slack v1.1.8
 	github.com/yetiz-org/goth-kkstdcatcher v1.0.1
